@@ -18,6 +18,7 @@ import { cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
+import { validateObject, VisualAidValidationSchema, showValidationErrors } from '../../utils/validation';
 
 type ViewMode = 'create' | 'gallery';
 
@@ -50,26 +51,89 @@ export default function VisualAids() {
   const generateVisualAid = async (data: VisualAidRequest) => {
     try {
       setLoading(true);
+      console.log('📤 Making visual aid request with data:', data);
+
+      // Comprehensive input validation
+      const validation = validateObject(data, VisualAidValidationSchema);
+      
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Additional business logic validation
+      if (!data.prompt || data.prompt.trim().length < 5) {
+        toast.error('Please provide a detailed description (at least 5 characters).');
+        return;
+      }
+
+      if (data.prompt.trim().length > 500) {
+        toast.error('Description is too long. Please keep it under 500 characters.');
+        return;
+      }
+
+      if (data.grade_level && (data.grade_level < 1 || data.grade_level > 12)) {
+        toast.error('Please select a valid grade level between 1 and 12.');
+        return;
+      }
+
       const requestData = {
         ...data,
+        prompt: data.prompt.trim(),
         asset_type: visualAidsState.selectedAssetType,
+        grade_level: data.grade_level || 5,
+        subject: data.subject?.trim() || 'General Education'
       };
       
       const response = await ApiService.VisualAids.generateVisualAid(requestData);
       
+      console.log('📥 Visual Aid API response:', response);
+      
+      // Enhanced response validation
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+      
       if (response && response.visual_aid_id) {
+        // Validate essential response components
+        if (!response.image_url && !response.filename) {
+          throw new Error('Visual aid missing essential content');
+        }
+
+        // Validate image URL if present
+        if (response.image_url && !response.image_url.startsWith('http') && !response.image_url.startsWith('data:')) {
+          console.warn('Invalid image URL format, but proceeding with generation');
+        }
+
+        const validatedAid = {
+          ...response,
+          prompt: requestData.prompt,
+          filename: response.filename || `visual-aid-${Date.now()}.png`,
+          topic: response.topic || requestData.subject || 'Educational Content',
+          metadata: {
+            ...response.metadata,
+            generated_at: response.metadata?.generated_at || new Date().toISOString(),
+            prompt_length: requestData.prompt.length,
+            generation_model: response.metadata?.generation_model || 'AI Model',
+            image_size: response.metadata?.image_size || 0
+          }
+        };
+
         setVisualAidsState(prev => ({
           ...prev,
-          currentAid: response,
-          savedAids: [...prev.savedAids, response],
+          currentAid: validatedAid,
+          savedAids: [...prev.savedAids, validatedAid],
         }));
+        setViewMode('gallery');
         toast.success(`${visualAidsState.selectedAssetType} generated successfully!`);
       } else {
-        toast.error('Invalid visual aid data received from server.');
+        console.error('Invalid visual aid structure:', response);
+        toast.error('Invalid visual aid data received from server. Please try again.');
       }
     } catch (error: any) {
       console.error('Visual aid generation error:', error);
-      toast.error(`Failed to generate ${visualAidsState.selectedAssetType}. Please try again.`);
+      const errorMessage = error?.response?.data?.message || error?.message || `Failed to generate ${visualAidsState.selectedAssetType}`;
+      toast.error(`${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
     }

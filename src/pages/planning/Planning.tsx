@@ -17,6 +17,7 @@ import { getGradeLabel, formatDate, cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
+import { validateObject, LessonPlanValidationSchema, showValidationErrors } from '../../utils/validation';
 
 type PlanningView = 'create' | 'view' | 'manage';
 
@@ -48,39 +49,83 @@ export default function Planning() {
   const generateLessonPlan = async (data: LessonPlanFormRequest) => {
     try {
       setLoading(true);
+      console.log('📤 Making lesson plan request with data:', data);
+      
+      // Comprehensive input validation
+      const validation = validateObject(data, LessonPlanValidationSchema);
+      
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Additional business logic validation
+      if (!data.topic || data.topic.trim().length < 2) {
+        toast.error('Please provide a valid topic (at least 2 characters).');
+        return;
+      }
+
+      if (!data.subject || data.subject.trim().length < 2) {
+        toast.error('Please provide a valid subject (at least 2 characters).');
+        return;
+      }
+
+      if (!data.duration || data.duration < 15 || data.duration > 180) {
+        toast.error('Please select a valid duration between 15 and 180 minutes.');
+        return;
+      }
       
       // Convert form data to the format expected by the backend
       const planRequest = {
         class_id: 'default-class', // Use a default class ID for now
         plan_type: 'daily' as const,
         duration: 1, // Daily plan duration
-        learning_objectives: [`Learn about ${data.topic} for grade ${data.grade}`],
-        curriculum_standards: [`${data.subject} - Grade ${data.grade}`]
+        learning_objectives: [`Learn about ${data.topic.trim()} for grade ${data.grade}`],
+        curriculum_standards: [`${data.subject.trim()} - Grade ${data.grade}`]
       };
       
       const response = await ApiService.Planning.createLessonPlan(planRequest);
       
+      // Enhanced response validation
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+      
       if (response.status === 'success' && response.lesson_plan) {
-        // Convert backend response to our LessonPlan format
+        // Validate lesson plan structure
+        if (!response.lesson_plan.plan_overview) {
+          throw new Error('Lesson plan missing essential content');
+        }
+
+        // Convert backend response to our LessonPlan format with better error handling
         const newPlan: LessonPlan = {
-          id: response.plan_id,
-          title: response.lesson_plan.plan_overview.title,
+          id: response.plan_id || Date.now().toString(),
+          title: response.lesson_plan?.plan_overview?.title || 
+                `${data.subject.trim()} - ${data.topic.trim()}`,
           grade: data.grade,
-          subject: data.subject,
-          topic: data.topic,
+          subject: data.subject.trim(),
+          topic: data.topic.trim(),
           duration: data.duration,
-          language: data.language,
-          learning_objectives: response.lesson_plan.plan_overview.learning_outcomes,
-          activities: response.lesson_plan.daily_schedule.map(day => 
-            day.activities.map(activity => ({
-              name: activity.topic,
-              description: activity.description,
-              duration: 15, // Default duration
+          language: data.language || 'English',
+          learning_objectives: response.lesson_plan?.plan_overview?.learning_outcomes || 
+                              [`Learn about ${data.topic.trim()}`],
+          activities: response.lesson_plan?.daily_schedule ? response.lesson_plan.daily_schedule.map(day => 
+            (day.activities || []).map(activity => ({
+              name: activity.topic || activity.activity_type || 'Learning Activity',
+              description: activity.description || 'Educational activity',
+              duration: 15, // Default duration as per original code
               materials: activity.materials_needed || []
             }))
-          ).flat(),
-          assessment: response.lesson_plan.assessment_plan?.formative_assessments?.join(', '),
-          resources: response.lesson_plan.resources?.required_materials,
+          ).flat() : [{
+            name: 'Introduction Activity',
+            description: `Introduction to ${data.topic.trim()}`,
+            duration: Math.floor(data.duration / 3),
+            materials: ['Whiteboard', 'Materials as needed']
+          }],
+          assessment: response.lesson_plan?.assessment_plan?.formative_assessments?.join(', ') ||
+                     'Ongoing observation and student participation',
+          resources: response.lesson_plan?.resources?.required_materials || 
+                    ['Basic classroom materials'],
           created_at: new Date().toISOString(),
         };
         
@@ -92,11 +137,13 @@ export default function Planning() {
         setView('view');
         toast.success('Lesson plan generated successfully!');
       } else {
-        toast.error('Invalid lesson plan data received from server.');
+        console.error('Invalid lesson plan structure:', response);
+        toast.error('Invalid lesson plan data received from server. Please try again.');
       }
     } catch (error: any) {
       console.error('Lesson plan generation error:', error);
-      toast.error('Failed to generate lesson plan. Please try again.');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to generate lesson plan';
+      toast.error(`Lesson plan generation failed: ${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -330,7 +377,7 @@ export default function Planning() {
                   Learning Objectives
                 </h3>
                 <ul className="space-y-2">
-                  {plan.learning_objectives.map((objective, index) => (
+                  {plan.learning_objectives && plan.learning_objectives.map((objective, index) => (
                     <li key={index} className="flex items-start">
                       <span className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-sm font-semibold text-green-600 mr-3 mt-0.5">
                         {index + 1}
@@ -350,7 +397,7 @@ export default function Planning() {
                   Lesson Activities
                 </h3>
                 <div className="space-y-4">
-                  {plan.activities.map((activity, index) => (
+                  {plan.activities && plan.activities.map((activity, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-6">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-lg font-medium text-gray-900">
@@ -400,7 +447,7 @@ export default function Planning() {
                   Additional Resources
                 </h3>
                 <ul className="space-y-2">
-                  {plan.resources.map((resource, index) => (
+                  {plan.resources && plan.resources.map((resource, index) => (
                     <li key={index} className="text-gray-700 flex items-start">
                       <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0" />
                       {resource}

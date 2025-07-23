@@ -16,6 +16,9 @@ import {
   LessonPlanRequest,
   LessonPlanResponse,
   TextRequest,
+  EnhancedAssistantRequest,
+  EnhancedAssistantResponse,
+  VoiceSession,
   BadgeAssignmentRequest,
   UserBadge,
   TeacherDashboardResponse,
@@ -258,16 +261,70 @@ export class PersonalizationService {
 
 // Voice Assistant Service
 export class VoiceService {
-  static async universalAssistant(formData: FormData): Promise<any> {
+  // Enhanced ChatGPT-like universal assistant
+  static async universalAssistant(request: EnhancedAssistantRequest): Promise<EnhancedAssistantResponse> {
+    const formData = new FormData();
+    
+    // Add text message if provided
+    if (request.message) {
+      formData.append('message', request.message);
+    }
+    
+    // Add user and session info
+    formData.append('user_id', request.user_id);
+    if (request.session_id) {
+      formData.append('session_id', request.session_id);
+    }
+    
+    // Add files if provided
+    if (request.files && request.files.length > 0) {
+      request.files.forEach((file, index) => {
+        formData.append(`file_${index}`, file);
+      });
+    }
+    
+    // Add preferences and context
+    if (request.preferences) {
+      formData.append('preferences', JSON.stringify(request.preferences));
+    }
+    
+    if (request.context) {
+      formData.append('context', JSON.stringify(request.context));
+    }
+    
+    // Add conversation history for context
+    if (request.conversation_history && request.conversation_history.length > 0) {
+      formData.append('conversation_history', JSON.stringify(request.conversation_history));
+    }
+    
     return apiClient.uploadFile('/api/v1/voice/assistant', formData as any);
   }
 
+  // Legacy method for backward compatibility (deprecated)
+  static async textChat(request: TextRequest): Promise<any> {
+    // Convert legacy request to enhanced format
+    const enhancedRequest: EnhancedAssistantRequest = {
+      user_id: request.user_id,
+      message: request.message,
+      session_id: request.session_id,
+      context: request.context,
+      preferences: {
+        generate_audio: request.generate_audio || false
+      }
+    };
+    
+    return this.universalAssistant(enhancedRequest);
+  }
+
+  // Legacy transcribe method (use universalAssistant with audio files instead)
   static async transcribeAudio(formData: FormData): Promise<any> {
+    console.warn('transcribeAudio is deprecated. Use universalAssistant with audio files instead.');
     return apiClient.uploadFile('/api/v1/voice/transcribe', formData as any);
   }
 
-  static async textChat(request: TextRequest): Promise<any> {
-    return apiClient.post('/api/v1/voice/text-chat', request);
+  // Session management methods
+  static async createSession(userId: string): Promise<VoiceSession> {
+    return apiClient.post('/api/v1/voice/sessions', { user_id: userId });
   }
 
   static async getUserSessions(userId: string, limit?: number): Promise<any> {
@@ -295,6 +352,15 @@ export class VoiceService {
 
   static async healthCheck(): Promise<any> {
     return apiClient.get('/api/v1/voice/health');
+  }
+
+  // Enhanced chat utilities
+  static async getChatSuggestions(context: string): Promise<string[]> {
+    return apiClient.post('/api/v1/voice/suggestions', { context });
+  }
+
+  static async getFollowUpQuestions(message: string): Promise<string[]> {
+    return apiClient.post('/api/v1/voice/follow-up', { message });
   }
 }
 

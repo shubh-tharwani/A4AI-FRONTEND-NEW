@@ -14,6 +14,7 @@ import { getGradeLabel, cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
+import { validateFormData, AssessmentValidationSchema, showValidationErrors } from '../../utils/validation';
 
 type AssessmentStep = 'setup' | 'taking' | 'results';
 
@@ -43,27 +44,66 @@ export default function Assessment() {
     try {
       setLoading(true);
       console.log('📤 Making quiz request with data:', data);
-      const response = await ApiService.Assessment.createQuiz(data);
+      
+      // Validate and sanitize input data
+      const validation = validateFormData(data, AssessmentValidationSchema);
+      
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Use sanitized data
+      const sanitizedData = validation.sanitizedData;
+
+      const response = await ApiService.Assessment.createQuiz(sanitizedData);
       
       console.log('📥 Quiz API response:', response);
       
-      // Handle actual backend response structure: { questions: [...], assessment_id: "..." }
-      if (response.questions && Array.isArray(response.questions)) {
+      // Enhanced response validation
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+
+      if (response.questions && Array.isArray(response.questions) && response.questions.length > 0) {
+        // Validate each question
+        const validQuestions = response.questions.filter(q => 
+          q && 
+          q.question && 
+          q.question.trim().length > 0 &&
+          ((q.options && Array.isArray(q.options) && q.options.length > 0) || !q.options) &&
+          q.answer
+        );
+
+        if (validQuestions.length === 0) {
+          throw new Error('No valid questions received from server');
+        }
+
+        if (validQuestions.length < response.questions.length) {
+          console.warn(`${response.questions.length - validQuestions.length} invalid questions filtered out`);
+          toast(`Some questions were invalid and removed. Quiz has ${validQuestions.length} questions.`, {
+            icon: '⚠️',
+            duration: 4000,
+          });
+        }
+
         setQuizState({
-          questions: response.questions,
+          questions: validQuestions,
           currentQuestion: 0,
-          answers: new Array(response.questions.length).fill(''),
-          timeRemaining: response.questions.length * 60, // 1 minute per question
+          answers: new Array(validQuestions.length).fill(''),
+          timeRemaining: validQuestions.length * 60, // 1 minute per question
           startTime: new Date(),
         });
         setStep('taking');
-        toast.success('Quiz created successfully!');
+        toast.success(`Quiz created successfully with ${validQuestions.length} questions!`);
       } else {
         console.error('Invalid response structure:', response);
-        toast.error('Invalid quiz data received from server.');
+        toast.error('Invalid quiz data received from server. Please try again.');
       }
     } catch (error: any) {
-      toast.error('Failed to create quiz. Please try again.');
+      console.error('Quiz creation error:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create quiz';
+      toast.error(`Quiz creation failed: ${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -106,21 +146,51 @@ export default function Assessment() {
   };
 
   const submitQuiz = () => {
-    if (!quizState) return;
+    if (!quizState || !quizState.questions || quizState.questions.length === 0) {
+      toast.error('Quiz data is invalid. Please try again.');
+      return;
+    }
 
     let correctAnswers = 0;
     const detailedResults = quizState.questions.map((question, index) => {
-      const isCorrect = quizState.answers[index] === question.answer;
+      if (!question || !question.question) {
+        console.warn(`Invalid question at index ${index}:`, question);
+        return {
+          question: 'Invalid question',
+          userAnswer: 'Not answered',
+          correctAnswer: 'N/A',
+          isCorrect: false,
+          explanation: 'Question data was invalid',
+        };
+      }
+
+      const userAnswer = quizState.answers[index] || '';
+      const correctAnswer = question.answer || '';
+      const isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+      
       if (isCorrect) correctAnswers++;
       
       return {
         question: question.question,
-        userAnswer: quizState.answers[index] || 'Not answered',
-        correctAnswer: question.answer,
+        userAnswer: userAnswer || 'Not answered',
+        correctAnswer: correctAnswer,
         isCorrect,
-        explanation: question.explanation,
+        explanation: question.explanation || 'No explanation available',
       };
     });
+
+    if (!quizState || !quizState.startTime) {
+      toast.error('Quiz timing data is invalid.');
+      setResults({
+        score: 0,
+        correctAnswers: 0,
+        totalQuestions: quizState?.questions?.length || 0,
+        timeTaken: 0,
+        detailedResults,
+      });
+      setStep('results');
+      return;
+    }
 
     const score = Math.round((correctAnswers / quizState.questions.length) * 100);
     const endTime = new Date();
@@ -130,7 +200,7 @@ export default function Assessment() {
       score,
       correctAnswers,
       totalQuestions: quizState.questions.length,
-      timeTaken,
+      timeTaken: Math.max(1, timeTaken), // Ensure at least 1 minute
       detailedResults,
     });
     setStep('results');
@@ -234,9 +304,11 @@ export default function Assessment() {
   );
 
   const renderQuizTaking = () => {
-    if (!quizState) return null;
+    if (!quizState || !quizState.questions || quizState.questions.length === 0) return null;
 
     const currentQ = quizState.questions[quizState.currentQuestion];
+    if (!currentQ) return null;
+
     const progress = ((quizState.currentQuestion + 1) / quizState.questions.length) * 100;
 
     return (
@@ -270,52 +342,111 @@ export default function Assessment() {
             {currentQ.question}
           </h3>
 
-          <div className="space-y-3 mb-8">
-            {currentQ.options.map((option, index) => (
-              <button
-                key={index}
-                onClick={() => handleAnswer(option)}
-                className={cn(
-                  "w-full p-4 text-left border rounded-lg transition-all duration-200 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500",
-                  quizState.answers[quizState.currentQuestion] === option
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-200 hover:bg-gray-50"
-                )}
-              >
-                <div className="flex items-center">
-                  <div className={cn(
-                    "w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3",
+          {/* Multiple Choice Options */}
+          {currentQ.options && currentQ.options.length > 0 ? (
+            <div className="space-y-3 mb-8">
+              {currentQ.options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleAnswer(option)}
+                  className={cn(
+                    "w-full p-4 text-left border rounded-lg transition-all duration-200 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500",
                     quizState.answers[quizState.currentQuestion] === option
-                      ? "border-blue-500 bg-blue-500"
-                      : "border-gray-300"
-                  )}>
-                    {quizState.answers[quizState.currentQuestion] === option && (
-                      <div className="w-2 h-2 bg-white rounded-full" />
-                    )}
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 hover:bg-gray-50"
+                  )}
+                >
+                  <div className="flex items-center">
+                    <div className={cn(
+                      "w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3",
+                      quizState.answers[quizState.currentQuestion] === option
+                        ? "border-blue-500 bg-blue-500"
+                        : "border-gray-300"
+                    )}>
+                      {quizState.answers[quizState.currentQuestion] === option && (
+                        <div className="w-2 h-2 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <span className="text-gray-900">{option}</span>
                   </div>
-                  <span className="text-gray-900">{option}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* Open-ended Text Answer */
+            <div className="mb-8">
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Answer:
+                </label>
+                <div className="relative">
+                  <textarea
+                    value={quizState.answers[quizState.currentQuestion] || ''}
+                    onChange={(e) => handleAnswer(e.target.value)}
+                    placeholder="Type your answer here. Be detailed and explain your reasoning..."
+                    className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    maxLength={1000}
+                  />
+                  {!(quizState.answers[quizState.currentQuestion] || '').trim() && (
+                    <div className="absolute top-2 right-2 bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">
+                      Answer required
+                    </div>
+                  )}
                 </div>
-              </button>
-            ))}
-          </div>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <div className="text-gray-500">
+                  💡 Tip: Provide a detailed explanation for better scoring
+                </div>
+                <div className="text-gray-500">
+                  {(quizState.answers[quizState.currentQuestion] || '').length}/1000 characters
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Navigation */}
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <button
               onClick={previousQuestion}
               disabled={quizState.currentQuestion === 0}
-              className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
 
-            <button
-              onClick={nextQuestion}
-              disabled={!quizState.answers[quizState.currentQuestion]}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {quizState.currentQuestion === quizState.questions.length - 1 ? 'Submit Quiz' : 'Next'}
-            </button>
+            <div className="flex items-center space-x-4">
+              {/* Progress indicator */}
+              <span className="text-sm text-gray-500">
+                Question {quizState.currentQuestion + 1} of {quizState.questions.length}
+              </span>
+              
+              {/* Next/Submit button */}
+              {quizState.currentQuestion === quizState.questions.length - 1 ? (
+                <div className="flex flex-col items-end space-y-2">
+                  <div className="text-sm text-green-600 font-medium">
+                    🎉 Final Question - Ready to Submit!
+                  </div>
+                  <button
+                    onClick={nextQuestion}
+                    disabled={!quizState.answers[quizState.currentQuestion] || 
+                             (quizState.answers[quizState.currentQuestion] || '').trim() === ''}
+                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 shadow-lg"
+                  >
+                    🎯 Submit Quiz & Get Results
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={nextQuestion}
+                  disabled={!quizState.answers[quizState.currentQuestion] || 
+                           (quizState.answers[quizState.currentQuestion] || '').trim() === ''}
+                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  Next →
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
@@ -323,7 +454,7 @@ export default function Assessment() {
   };
 
   const renderResults = () => {
-    if (!results) return null;
+    if (!results || !results.detailedResults) return null;
 
     return (
       <motion.div
@@ -380,7 +511,7 @@ export default function Assessment() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Detailed Results</h3>
           <div className="space-y-6">
-            {results.detailedResults.map((result: any, index: number) => (
+            {results.detailedResults && results.detailedResults.map((result: any, index: number) => (
               <div key={index} className="border border-gray-200 rounded-lg p-6">
                 <div className="flex items-start space-x-3 mb-4">
                   {result.isCorrect ? (

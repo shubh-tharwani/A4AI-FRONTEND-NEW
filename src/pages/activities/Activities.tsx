@@ -16,6 +16,7 @@ import { getGradeLabel, cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
+import { validateObject, ActivityValidationSchema, InteractiveStoryValidationSchema, showValidationErrors } from '../../utils/validation';
 
 type ActivityType = 'story' | 'game' | 'exercise';
 
@@ -46,40 +47,97 @@ export default function Activities() {
     try {
       setLoading(true);
       
-      // Convert ActivityRequest to InteractiveStoryRequest format
-      const storyRequest = {
-        grade: data.grade,
-        topic: data.topic
-      };
+      // Comprehensive input validation
+      const validation = validateObject(data, ActivityValidationSchema);
       
-      const response = await ApiService.Activities.createInteractiveStory(storyRequest);
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Additional business logic validation
+      if (!data.topic || data.topic.trim().length < 3) {
+        toast.error('Please provide a detailed topic (at least 3 characters).');
+        return;
+      }
+
+      if (!data.grade || data.grade < 1 || data.grade > 12) {
+        toast.error('Please select a valid grade level between 1 and 12.');
+        return;
+      }
+
+      // Sanitize and prepare request data
+      const sanitizedData = {
+        grade: data.grade,
+        topic: data.topic.trim()
+      };
+
+      // Validate story request data
+      const storyValidation = validateObject(sanitizedData, InteractiveStoryValidationSchema);
+      
+      if (!storyValidation.isValid) {
+        showValidationErrors(storyValidation.errors);
+        return;
+      }
+      
+      const response = await ApiService.Activities.createInteractiveStory(sanitizedData);
+      
+      console.log('📥 Interactive Story API response:', response);
+      
+      // Enhanced response validation
+      if (!response) {
+        throw new Error('No response received from server');
+      }
       
       // Backend returns InteractiveStoryResponse directly
       if (response.story_id && response.story_text) {
-        // Convert to our Story format
+        // Validate essential story components
+        if (!response.title || !response.story_text) {
+          throw new Error('Story missing essential components (title or content)');
+        }
+
+        // Convert to our Story format with enhanced validation
         const story: Story = {
           id: response.story_id,
-          title: response.title,
+          title: response.title || `Story: ${sanitizedData.topic}`,
           content: response.story_text,
-          summary: response.title, // Use title as summary
-          grade: response.grade_level,
-          topic: response.topic,
+          summary: response.title || `Interactive story about ${sanitizedData.topic}`, 
+          grade: response.grade_level || sanitizedData.grade,
+          topic: response.topic || sanitizedData.topic,
           language: 'English', // Default language
-          learning_objectives: response.learning_objectives,
-          vocabulary_words: response.vocabulary_words
+          learning_objectives: Array.isArray(response.learning_objectives) ? 
+            response.learning_objectives.filter(obj => obj && obj.trim()) : 
+            [`Learn about ${sanitizedData.topic}`],
+          vocabulary_words: Array.isArray(response.vocabulary_words) ? 
+            response.vocabulary_words.filter(word => word && word.trim()) : 
+            []
         };
+
+        // Ensure we have valid learning objectives
+        if (!story.learning_objectives || story.learning_objectives.length === 0) {
+          console.warn('No valid learning objectives found, adding default');
+          story.learning_objectives = [`Explore and understand ${sanitizedData.topic} through interactive storytelling`];
+        }
+
+        // Validate story content length
+        if (story.content.length < 100) {
+          console.warn('Story content is very short, this may indicate an API issue');
+          toast.error('Generated story is shorter than expected. You may want to try again with a more specific topic.');
+        }
         
         setActivityState(prev => ({
           ...prev,
           currentStory: story,
         }));
-        toast.success('Interactive story generated successfully!');
+        toast.success(`Interactive story "${story.title}" generated successfully!`);
       } else {
-        toast.error('Invalid story data received from server.');
+        console.error('Invalid story structure:', response);
+        toast.error('Invalid story data received from server. Please try again.');
       }
     } catch (error: any) {
       console.error('Story generation error:', error);
-      toast.error('Failed to generate story. Please try again.');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to generate story';
+      toast.error(`Story generation failed: ${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
     }

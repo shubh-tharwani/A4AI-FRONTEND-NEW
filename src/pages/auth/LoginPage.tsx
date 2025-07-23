@@ -7,6 +7,8 @@ import { useAuthStore } from '../../store/authStore';
 import { LoginRequest } from '../../types';
 import { validateEmail } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { validateObject, LoginValidationSchema, showValidationErrors } from '../../utils/validation';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,11 +27,44 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginRequest) => {
     try {
-      await login(data);
+      // Comprehensive input validation
+      const validation = validateObject(data, LoginValidationSchema);
+      
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Additional business logic validation
+      if (!data.email || !validateEmail(data.email)) {
+        toast.error('Please enter a valid email address.');
+        return;
+      }
+
+      if (!data.password || data.password.length < 6) {
+        toast.error('Password must be at least 6 characters long.');
+        return;
+      }
+
+      // Sanitize login data
+      const sanitizedData: LoginRequest = {
+        email: data.email.trim().toLowerCase(),
+        password: data.password
+      };
+
+      await login(sanitizedData);
+      toast.success('Login successful!');
       navigate(from, { replace: true });
     } catch (error: any) {
+      console.error('Login error:', error);
+      
       if (error.response?.data?.message) {
         setError('root', { message: error.response.data.message });
+        toast.error(error.response.data.message);
+      } else {
+        const errorMessage = error?.message || 'Login failed. Please try again.';
+        setError('root', { message: errorMessage });
+        toast.error(errorMessage);
       }
     }
   };

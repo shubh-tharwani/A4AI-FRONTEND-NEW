@@ -7,6 +7,8 @@ import { useAuthStore } from '../../store/authStore';
 import { SignupRequest } from '../../types';
 import { validateEmail, validatePassword } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { validateObject, RegisterValidationSchema, showValidationErrors } from '../../utils/validation';
+import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -26,12 +28,68 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: SignupRequest & { confirmPassword: string }) => {
     try {
+      // Comprehensive input validation
+      const validation = validateObject(data, RegisterValidationSchema);
+      
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Additional business logic validation
+      if (!data.email || !validateEmail(data.email)) {
+        toast.error('Please enter a valid email address.');
+        return;
+      }
+
+      if (!data.password || !validatePassword(data.password)) {
+        toast.error('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.');
+        return;
+      }
+
+      if (data.password !== data.confirmPassword) {
+        toast.error('Passwords do not match. Please try again.');
+        return;
+      }
+
+      if (!data.firstName || data.firstName.trim().length < 2) {
+        toast.error('First name must be at least 2 characters long.');
+        return;
+      }
+
+      if (!data.lastName || data.lastName.trim().length < 2) {
+        toast.error('Last name must be at least 2 characters long.');
+        return;
+      }
+
+      if (!data.role || !['teacher', 'student'].includes(data.role)) {
+        toast.error('Please select a valid role (Teacher or Student).');
+        return;
+      }
+
+      // Sanitize signup data
       const { confirmPassword, ...signupData } = data;
-      await signup(signupData);
+      const sanitizedSignupData: SignupRequest = {
+        email: signupData.email.trim().toLowerCase(),
+        password: signupData.password,
+        firstName: signupData.firstName.trim(),
+        lastName: signupData.lastName.trim(),
+        role: signupData.role
+      };
+
+      await signup(sanitizedSignupData);
+      toast.success('Registration successful! Welcome to A4AI!');
       navigate('/dashboard');
     } catch (error: any) {
+      console.error('Registration error:', error);
+      
       if (error.response?.data?.message) {
         setError('root', { message: error.response.data.message });
+        toast.error(error.response.data.message);
+      } else {
+        const errorMessage = error?.message || 'Registration failed. Please try again.';
+        setError('root', { message: errorMessage });
+        toast.error(errorMessage);
       }
     }
   };
@@ -69,26 +127,51 @@ export default function RegisterPage() {
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Display Name Field */}
+            {/* First Name Field */}
             <div>
-              <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                First Name
               </label>
               <input
-                {...register('display_name', {
-                  required: 'Full name is required',
+                {...register('firstName', {
+                  required: 'First name is required',
                   minLength: {
                     value: 2,
-                    message: 'Name must be at least 2 characters long',
+                    message: 'First name must be at least 2 characters long',
                   },
                 })}
                 type="text"
-                id="display_name"
+                id="firstName"
                 className="input-field"
-                placeholder="Enter your full name"
+                placeholder="Enter your first name"
                 disabled={loading}
               />
-              {errors.display_name && (
-                <p className="text-red-500 text-sm mt-1">{errors.display_name.message}</p>
+              {errors.firstName && (
+                <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
+              )}
+            </div>
+
+            {/* Last Name Field */}
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                Last Name
+              </label>
+              <input
+                {...register('lastName', {
+                  required: 'Last name is required',
+                  minLength: {
+                    value: 2,
+                    message: 'Last name must be at least 2 characters long',
+                  },
+                })}
+                type="text"
+                id="lastName"
+                className="input-field"
+                placeholder="Enter your last name"
+                disabled={loading}
+              />
+              {errors.lastName && (
+                <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
               )}
             </div>
 

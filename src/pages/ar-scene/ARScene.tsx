@@ -19,6 +19,7 @@ import { cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
+import { validateObject, ARSceneValidationSchema, showValidationErrors } from '../../utils/validation';
 
 type ViewMode = 'create' | 'scene' | 'gallery';
 type DeviceType = 'desktop' | 'mobile';
@@ -164,22 +165,107 @@ export default function ARScene() {
   const generateARScene = async (data: ARSceneRequest) => {
     try {
       setLoading(true);
-      const response = await ApiService.Activities.createARScene(data);
+      console.log('📤 Making AR scene request with data:', data);
+
+      // Comprehensive input validation
+      const validation = validateObject(data, ARSceneValidationSchema);
       
+      if (!validation.isValid) {
+        showValidationErrors(validation.errors);
+        return;
+      }
+
+      // Additional business logic validation
+      if (!data.topic || data.topic.trim().length < 5) {
+        toast.error('Please provide a detailed topic description (at least 5 characters).');
+        return;
+      }
+
+      if (data.grade_level && (data.grade_level < 1 || data.grade_level > 12)) {
+        toast.error('Please select a valid grade level between 1 and 12.');
+        return;
+      }
+
+      // Sanitize and prepare request data
+      const sanitizedData = {
+        topic: data.topic.trim(),
+        grade_level: data.grade_level || 5
+      };
+
+      const response = await ApiService.Activities.createARScene(sanitizedData);
+      
+      console.log('📥 AR Scene API response:', response);
+      
+      // Enhanced response validation
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+
       if (response && response.scene_id) {
+        // Validate scene structure
+        if (!response.scene_name && !response.educational_objective) {
+          throw new Error('AR scene missing essential components');
+        }
+
+        const validatedScene = {
+          ...response,
+          scene_name: response.scene_name || `AR Scene: ${sanitizedData.topic}`,
+          educational_objective: response.educational_objective || `Learn about ${sanitizedData.topic}`,
+          environment: response.environment || {
+            setting: 'Default virtual environment',
+            lighting: 'Natural lighting',
+            atmosphere: 'Educational setting',
+            size_scale: 'Medium'
+          },
+          objects: Array.isArray(response.objects) ? response.objects.filter(obj => 
+            obj && obj.name && obj.description
+          ) : [],
+          interactions: Array.isArray(response.interactions) ? response.interactions.filter(interaction => 
+            interaction && interaction.type && interaction.description
+          ) : [],
+          technical_requirements: Array.isArray(response.technical_requirements) ? 
+            response.technical_requirements : ['AR-capable device', 'Good lighting conditions'],
+          assessment_opportunities: Array.isArray(response.assessment_opportunities) ? 
+            response.assessment_opportunities : ['Observation of student engagement'],
+          grade_level: sanitizedData.grade_level,
+          subject_area: response.subject_area || 'General Education'
+        };
+
+        if (validatedScene.objects.length === 0) {
+          console.warn('No valid objects in AR scene, adding default objects');
+          validatedScene.objects = [{
+            name: 'Educational Model',
+            description: `Interactive 3D model related to ${sanitizedData.topic}`,
+            interactions: ['Touch to explore', 'Rotate to view'],
+            learning_purpose: `Visual understanding of ${sanitizedData.topic}`
+          }];
+        }
+
+        if (validatedScene.interactions.length === 0) {
+          console.warn('No valid interactions in AR scene, adding default interactions');
+          validatedScene.interactions = [{
+            type: 'Touch Interaction',
+            description: 'Touch objects to learn more about them',
+            learning_outcome: `Enhanced understanding of ${sanitizedData.topic}`,
+            feedback_mechanism: 'Visual and audio feedback'
+          }];
+        }
+
         setARState(prev => ({
           ...prev,
-          currentScene: response,
-          savedScenes: [...prev.savedScenes, response],
+          currentScene: validatedScene,
+          savedScenes: [...prev.savedScenes, validatedScene],
         }));
         setViewMode('scene');
-        toast.success('AR Scene created successfully!');
+        toast.success(`AR scene "${validatedScene.scene_name}" created successfully!`);
       } else {
-        toast.error('Invalid AR scene data received from server.');
+        console.error('Invalid AR scene structure:', response);
+        toast.error('Invalid AR scene data received from server. Please try again.');
       }
     } catch (error: any) {
       console.error('AR scene generation error:', error);
-      toast.error('Failed to create AR scene. Please try again.');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to generate AR scene';
+      toast.error(`AR scene generation failed: ${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -434,13 +520,13 @@ export default function ARScene() {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">3D Objects</h3>
               <div className="space-y-3">
-                {scene.objects.slice(0, 3).map((obj, index) => (
+                {scene.objects && scene.objects.slice(0, 3).map((obj, index) => (
                   <div key={index} className="bg-gray-50 rounded-lg p-3">
                     <h4 className="text-sm font-medium text-gray-900 mb-1">{obj.name}</h4>
                     <p className="text-xs text-gray-600">{obj.learning_purpose}</p>
                   </div>
                 ))}
-                {scene.objects.length > 3 && (
+                {scene.objects && scene.objects.length > 3 && (
                   <p className="text-sm text-gray-600">
                     +{scene.objects.length - 3} more objects...
                   </p>
@@ -454,7 +540,7 @@ export default function ARScene() {
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Available Interactions</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {scene.interactions.map((interaction, index) => (
+                {scene.interactions && scene.interactions.map((interaction, index) => (
                   <div key={index} className="bg-indigo-50 rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-indigo-900 mb-2">
                       {interaction.type}

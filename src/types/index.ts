@@ -16,8 +16,9 @@ export interface LoginRequest {
 export interface SignupRequest {
   email: string;
   password: string;
-  display_name?: string;
-  role?: 'student' | 'teacher' | 'admin';
+  firstName: string;
+  lastName: string;
+  role: 'student' | 'teacher' | 'admin';
 }
 
 export interface AuthResponse {
@@ -111,6 +112,56 @@ export interface VoiceMessage {
   content: string;
   timestamp: string;
   audio_url?: string;
+  attachments?: ChatAttachment[];
+  metadata?: MessageMetadata;
+}
+
+// Enhanced ChatGPT-like Assistant Types
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  type: 'image' | 'document' | 'audio' | 'video' | 'text';
+  url: string;
+  size: number;
+  mimeType: string;
+  preview?: string;
+}
+
+export interface MessageMetadata {
+  tokens?: number;
+  model?: string;
+  processing_time?: number;
+  confidence?: number;
+  language?: string;
+  input_type?: string;
+  tokens_used?: number;
+  file_count?: number;
+  character_count?: number;
+}
+
+export interface EnhancedAssistantRequest {
+  user_id: string;
+  message?: string;
+  session_id?: string;
+  files?: File[];
+  context?: Record<string, any>;
+  preferences?: {
+    generate_audio?: boolean;
+    language?: string;
+    response_style?: 'educational' | 'conversational' | 'formal' | 'creative';
+    max_tokens?: number;
+  };
+  conversation_history?: VoiceMessage[];
+}
+
+export interface EnhancedAssistantResponse {
+  message: string;
+  session_id: string;
+  audio_url?: string;
+  attachments?: ChatAttachment[];
+  metadata: MessageMetadata;
+  suggestions?: string[];
+  follow_up_questions?: string[];
 }
 
 // Visual Aids Types

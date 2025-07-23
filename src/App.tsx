@@ -2,13 +2,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
-import { useEffect } from 'react';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
-// Pages
+// Import pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import StudentDashboard from './pages/dashboard/StudentDashboard';
-import TeacherDashboard from './pages/dashboard/TeacherDashboard';
 import Assessment from './pages/assessment/Assessment';
 import Activities from './pages/activities/Activities';
 import Planning from './pages/planning/Planning';
@@ -16,149 +15,75 @@ import VoiceAssistant from './pages/voice-assistant/VoiceAssistant';
 import VisualAids from './pages/visual-aids/VisualAids';
 import ARScene from './pages/ar-scene/ARScene';
 
-// Components
-import LoadingSpinner from './components/ui/LoadingSpinner';
-import ProtectedRoute from './components/auth/ProtectedRoute';
+// Create a client
+const queryClient = new QueryClient();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-});
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+}
 
 function App() {
-  const { user, loading, initializeAuth } = useAuthStore();
-
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-          <Routes>
-            {/* Public Routes */}
-            <Route 
-              path="/login" 
-              element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} 
-            />
-            <Route 
-              path="/register" 
-              element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />} 
-            />
-            
-            {/* Protected Routes */}
-            <Route
-              path="/dashboard"
-              element={
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <div className="min-h-screen bg-gray-50">
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              
+              {/* Protected routes */}
+              <Route path="/dashboard" element={
                 <ProtectedRoute>
-                  {user?.role === 'teacher' ? <TeacherDashboard /> : <StudentDashboard />}
+                  <StudentDashboard />
                 </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/assessment"
-              element={
+              } />
+              
+              <Route path="/assessment" element={
                 <ProtectedRoute>
                   <Assessment />
                 </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/activities"
-              element={
+              } />
+              
+              <Route path="/activities" element={
                 <ProtectedRoute>
                   <Activities />
                 </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/planning"
-              element={
-                <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              } />
+              
+              <Route path="/planning" element={
+                <ProtectedRoute>
                   <Planning />
                 </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/voice"
-              element={
+              } />
+              
+              <Route path="/voice" element={
                 <ProtectedRoute>
                   <VoiceAssistant />
                 </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/visual-aids"
-              element={
+              } />
+              
+              <Route path="/visual-aids" element={
                 <ProtectedRoute>
                   <VisualAids />
                 </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/ar"
-              element={
+              } />
+              
+              <Route path="/ar-scene" element={
                 <ProtectedRoute>
                   <ARScene />
                 </ProtectedRoute>
-              }
-            />
-            
-            {/* Default Route */}
-            <Route
-              path="/"
-              element={
-                user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
-              }
-            />
-          </Routes>
-          
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                duration: 3000,
-                iconTheme: {
-                  primary: '#4ade80',
-                  secondary: '#fff',
-                },
-              },
-              error: {
-                duration: 5000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
-        </div>
-      </Router>
-    </QueryClientProvider>
+              } />
+              
+              {/* Default redirect */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </div>
+          <Toaster position="top-right" />
+        </Router>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

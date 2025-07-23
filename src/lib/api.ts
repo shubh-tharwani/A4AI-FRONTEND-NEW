@@ -10,7 +10,7 @@ class ApiClient {
   constructor() {
     this.instance = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 30000,
+      timeout: 45000, // Increased timeout for AI operations
       headers: {
         'Content-Type': 'application/json',
       },
@@ -43,6 +43,18 @@ class ApiClient {
       (response: AxiosResponse) => response,
       async (error) => {
         console.log('🚨 API Error:', error.response?.status, error.response?.data);
+        
+        // Handle timeout errors specifically
+        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+          toast.error('Request timed out. The server may be busy processing your request. Please try again.');
+          return Promise.reject(new Error('Request timeout'));
+        }
+
+        // Handle network errors
+        if (!error.response) {
+          toast.error('Network error. Please check your connection and try again.');
+          return Promise.reject(new Error('Network error'));
+        }
         
         if (error.response?.status === 401) {
           // Try to refresh token first
@@ -78,6 +90,13 @@ class ApiClient {
         } else if (error.response?.status === 403) {
           console.log('🔒 403 Forbidden - Token might be invalid or insufficient permissions');
           toast.error('Access denied. Please check your permissions or login again.');
+        } else if (error.response?.status === 404) {
+          toast.error('Resource not found. Please check the URL and try again.');
+        } else if (error.response?.status === 422) {
+          const message = error.response?.data?.message || 'Invalid data provided';
+          toast.error(`Validation error: ${message}`);
+        } else if (error.response?.status >= 500) {
+          toast.error('Server error. Please try again later.');
         } else if (error.response?.data?.message) {
           toast.error(error.response.data.message);
         } else if (error.message) {
