@@ -182,6 +182,28 @@ class ApiClient {
       },
     });
   }
+
+  // MultiPart form data method for complex forms
+  async uploadMultiPartForm<T = any>(
+    url: string,
+    formData: FormData,
+    onProgress?: (progress: number) => void
+  ): Promise<T> {
+    return this.request<T>({
+      method: 'POST',
+      url,
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = (progressEvent.loaded / progressEvent.total) * 100;
+          onProgress(Math.round(progress));
+        }
+      },
+    });
+  }
 }
 
 // Create singleton instance

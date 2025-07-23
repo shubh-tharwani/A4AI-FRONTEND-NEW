@@ -16,9 +16,10 @@ export interface LoginRequest {
 export interface SignupRequest {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
-  role: 'student' | 'teacher' | 'admin';
+  display_name?: string;
+  role?: 'student' | 'teacher' | 'admin';
+  firstName?: string;  // Keep for compatibility
+  lastName?: string;   // Keep for compatibility
 }
 
 export interface AuthResponse {
@@ -143,15 +144,20 @@ export interface EnhancedAssistantRequest {
   user_id: string;
   message?: string;
   session_id?: string;
-  files?: File[];
+  audio_file?: File;
+  file_upload?: File;
+  query?: string;
   context?: Record<string, any>;
+  // Legacy support
+  files?: File[];  // Keep for compatibility
+  conversation_history?: any[];  // Keep for compatibility
   preferences?: {
+    response_format?: 'text' | 'audio' | 'both' | 'auto';
     generate_audio?: boolean;
     language?: string;
     response_style?: 'educational' | 'conversational' | 'formal' | 'creative';
     max_tokens?: number;
   };
-  conversation_history?: VoiceMessage[];
 }
 
 export interface EnhancedAssistantResponse {

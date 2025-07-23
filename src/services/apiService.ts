@@ -1,3 +1,4 @@
+// Updated API Service implementation aligned with OpenAPI 3.1.0 specification
 import apiClient from '../lib/api';
 import {
   LoginRequest,
@@ -13,12 +14,10 @@ import {
   InteractiveStoryResponse,
   ARSceneRequest,
   ARSceneResponse,
-  LessonPlanRequest,
   LessonPlanResponse,
   TextRequest,
   EnhancedAssistantRequest,
   EnhancedAssistantResponse,
-  VoiceSession,
   BadgeAssignmentRequest,
   UserBadge,
   TeacherDashboardResponse,
@@ -34,7 +33,21 @@ export class AuthService {
   }
 
   static async signup(userData: SignupRequest): Promise<AuthResponse> {
-    return apiClient.post<AuthResponse>('/api/v1/auth/signup', userData);
+    // Transform firstName and lastName to display_name if needed
+    const payload: SignupRequest = {
+      email: userData.email,
+      password: userData.password,
+      role: userData.role || 'student'
+    };
+    
+    // Combine firstName and lastName into display_name if provided
+    if (userData.firstName || userData.lastName) {
+      payload.display_name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+    } else if (userData.display_name) {
+      payload.display_name = userData.display_name;
+    }
+    
+    return apiClient.post<AuthResponse>('/api/v1/auth/signup', payload);
   }
 
   static async refreshToken(refreshToken: string): Promise<any> {
@@ -53,25 +66,6 @@ export class AuthService {
 
   static async healthCheck(): Promise<any> {
     return apiClient.get('/api/v1/auth/health');
-  }
-}
-
-// Assessment Service
-export class AssessmentService {
-  static async createQuiz(request: QuizRequest): Promise<QuizResponse> {
-    return apiClient.post<QuizResponse>('/api/v1/assessment/quiz', request);
-  }
-
-  static async scoreAnswer(request: ScoreRequest): Promise<any> {
-    return apiClient.post('/api/v1/assessment/score', request);
-  }
-
-  static async updatePerformance(request: PerformanceUpdateRequest): Promise<any> {
-    return apiClient.post('/api/v1/assessment/performance', request);
-  }
-
-  static async getRecommendations(): Promise<any> {
-    return apiClient.get('/api/v1/assessment/recommendations');
   }
 }
 
@@ -95,6 +89,25 @@ export class EducationService {
 
   static async healthCheck(): Promise<any> {
     return apiClient.get('/api/v1/education/health');
+  }
+}
+
+// Assessment Service
+export class AssessmentService {
+  static async createQuiz(request: QuizRequest): Promise<QuizResponse> {
+    return apiClient.post<QuizResponse>('/api/v1/assessment/quiz', request);
+  }
+
+  static async scoreAnswer(request: ScoreRequest): Promise<any> {
+    return apiClient.post('/api/v1/assessment/score', request);
+  }
+
+  static async updatePerformance(request: PerformanceUpdateRequest): Promise<any> {
+    return apiClient.post('/api/v1/assessment/performance', request);
+  }
+
+  static async getRecommendations(): Promise<any> {
+    return apiClient.get('/api/v1/assessment/recommendations');
   }
 }
 
@@ -143,7 +156,11 @@ export class VisualAidsService {
     return apiClient.post<VisualAidResponse>('/api/v1/visual-aids/generate', request);
   }
 
-  static async createInfographic(request: any): Promise<any> {
+  static async createInfographic(request: {
+    topic: string;
+    data_points: string[];
+    grade_level?: number;
+  }): Promise<any> {
     return apiClient.post('/api/v1/visual-aids/infographic', request);
   }
 
@@ -188,11 +205,22 @@ export class VisualAidsService {
 
 // Planning Service
 export class PlanningService {
-  static async createLessonPlan(request: LessonPlanRequest): Promise<LessonPlanResponse> {
+  static async createLessonPlan(request: {
+    class_id: string;
+    plan_type?: 'daily' | 'weekly' | 'monthly';
+    duration?: number;
+    curriculum_standards?: string[];
+    learning_objectives?: string[];
+  }): Promise<LessonPlanResponse> {
     return apiClient.post<LessonPlanResponse>('/api/v1/planning/lesson-plan', request);
   }
 
-  static async createCurriculumPlan(request: any): Promise<any> {
+  static async createCurriculumPlan(request: {
+    class_id: string;
+    subject: string;
+    grade_level: number;
+    semester_duration?: number;
+  }): Promise<any> {
     return apiClient.post('/api/v1/planning/curriculum-plan', request);
   }
 
@@ -200,8 +228,13 @@ export class PlanningService {
     return apiClient.get(`/api/v1/planning/lesson-plan/${planId}`);
   }
 
-  static async updateLessonPlan(planId: string, update: any): Promise<any> {
-    return apiClient.put(`/api/v1/planning/lesson-plan/${planId}`, update);
+  static async updateLessonPlan(planId: string, updates: {
+    title?: string;
+    description?: string;
+    content?: Record<string, any>;
+    notes?: string;
+  }): Promise<any> {
+    return apiClient.put(`/api/v1/planning/lesson-plan/${planId}`, updates);
   }
 
   static async deleteLessonPlan(planId: string): Promise<any> {
@@ -235,8 +268,8 @@ export class PlanningService {
     return apiClient.get<string[]>('/api/v1/planning/subjects');
   }
 
-  static async getPlanTypes(): Promise<any[]> {
-    return apiClient.get<any[]>('/api/v1/planning/plan-types');
+  static async getPlanTypes(): Promise<Array<Record<string, string>>> {
+    return apiClient.get<Array<Record<string, string>>>('/api/v1/planning/plan-types');
   }
 }
 
@@ -250,7 +283,7 @@ export class PersonalizationService {
     return apiClient.get<PersonalizationResponse>('/api/v1/personalization/recommendations');
   }
 
-  static async getTeacherSummary(request: any): Promise<PersonalizationResponse> {
+  static async getTeacherSummary(request: { class_id: string }): Promise<PersonalizationResponse> {
     return apiClient.post<PersonalizationResponse>('/api/v1/personalization/teacher-summary', request);
   }
 
@@ -265,68 +298,76 @@ export class VoiceService {
   static async universalAssistant(request: EnhancedAssistantRequest): Promise<EnhancedAssistantResponse> {
     const formData = new FormData();
     
+    // Add user_id (required field according to OpenAPI spec)
+    formData.append('user_id', request.user_id);
+    
     // Add text message if provided
     if (request.message) {
       formData.append('message', request.message);
     }
     
-    // Add user and session info
-    formData.append('user_id', request.user_id);
+    // Add session info
     if (request.session_id) {
       formData.append('session_id', request.session_id);
     }
     
-    // Add files if provided
+    // Add response format
+    if (request.preferences?.response_format) {
+      formData.append('response_format', request.preferences.response_format);
+    } else {
+      formData.append('response_format', 'auto');
+    }
+    
+    // Add context (as JSON string, default to empty object)
+    const contextData = request.context || {};
+    formData.append('context', JSON.stringify(contextData));
+    
+    // Add audio file if provided
+    if (request.audio_file) {
+      formData.append('audio_file', request.audio_file);
+    }
+    
+    // Add file upload if provided
+    if (request.file_upload) {
+      formData.append('file_upload', request.file_upload);
+    }
+    
+    // Handle legacy files array - take the first file as file_upload
     if (request.files && request.files.length > 0) {
-      request.files.forEach((file, index) => {
-        formData.append(`file_${index}`, file);
-      });
+      formData.append('file_upload', request.files[0]);
     }
     
-    // Add preferences and context
-    if (request.preferences) {
-      formData.append('preferences', JSON.stringify(request.preferences));
+    // Add query for file analysis
+    if (request.query) {
+      formData.append('query', request.query);
     }
     
-    if (request.context) {
-      formData.append('context', JSON.stringify(request.context));
-    }
-    
-    // Add conversation history for context
-    if (request.conversation_history && request.conversation_history.length > 0) {
-      formData.append('conversation_history', JSON.stringify(request.conversation_history));
-    }
-    
-    return apiClient.uploadFile('/api/v1/voice/assistant', formData as any);
+    // Use the new multipart form method
+    return apiClient.uploadMultiPartForm('/api/v1/voice/assistant', formData);
   }
 
-  // Legacy method for backward compatibility (deprecated)
+  // Text-only chat (using the dedicated text endpoint)
   static async textChat(request: TextRequest): Promise<any> {
-    // Convert legacy request to enhanced format
-    const enhancedRequest: EnhancedAssistantRequest = {
+    const payload = {
       user_id: request.user_id,
       message: request.message,
-      session_id: request.session_id,
-      context: request.context,
-      preferences: {
-        generate_audio: request.generate_audio || false
-      }
+      session_id: request.session_id || null,
+      context: request.context || null,
+      generate_audio: request.generate_audio || false
     };
     
-    return this.universalAssistant(enhancedRequest);
+    return apiClient.post('/api/v1/voice/text-chat', payload);
   }
 
-  // Legacy transcribe method (use universalAssistant with audio files instead)
-  static async transcribeAudio(formData: FormData): Promise<any> {
-    console.warn('transcribeAudio is deprecated. Use universalAssistant with audio files instead.');
-    return apiClient.uploadFile('/api/v1/voice/transcribe', formData as any);
+  // Speech-to-text transcription
+  static async transcribeAudio(audioFile: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('audio_file', audioFile);
+    
+    return apiClient.uploadMultiPartForm('/api/v1/voice/transcribe', formData);
   }
 
   // Session management methods
-  static async createSession(userId: string): Promise<VoiceSession> {
-    return apiClient.post('/api/v1/voice/sessions', { user_id: userId });
-  }
-
   static async getUserSessions(userId: string, limit?: number): Promise<any> {
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit.toString());
@@ -352,15 +393,6 @@ export class VoiceService {
 
   static async healthCheck(): Promise<any> {
     return apiClient.get('/api/v1/voice/health');
-  }
-
-  // Enhanced chat utilities
-  static async getChatSuggestions(context: string): Promise<string[]> {
-    return apiClient.post('/api/v1/voice/suggestions', { context });
-  }
-
-  static async getFollowUpQuestions(message: string): Promise<string[]> {
-    return apiClient.post('/api/v1/voice/follow-up', { message });
   }
 }
 
@@ -434,7 +466,20 @@ export class OrchestrationService {
     return apiClient.post('/api/v1/agentic/orchestrate', payload);
   }
 
-  static async createCompleteLesson(request: any): Promise<any> {
+  static async createCompleteLesson(request: {
+    teacher_id: string;
+    class_id: string;
+    topic: string;
+    grade_level?: string;
+    duration?: number;
+    lesson_type?: string;
+    curriculum_standards?: any[];
+    learning_objectives?: any[];
+    student_data?: Record<string, any>;
+    include_visual_aids?: boolean;
+    assessment_required?: boolean;
+    preferences?: Record<string, any>;
+  }): Promise<any> {
     return apiClient.post('/api/v1/agentic/lesson/complete', request);
   }
 

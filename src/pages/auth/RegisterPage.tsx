@@ -72,8 +72,8 @@ export default function RegisterPage() {
       const sanitizedSignupData: SignupRequest = {
         email: signupData.email.trim().toLowerCase(),
         password: signupData.password,
-        firstName: signupData.firstName.trim(),
-        lastName: signupData.lastName.trim(),
+        firstName: signupData.firstName?.trim(),
+        lastName: signupData.lastName?.trim(),
         role: signupData.role
       };
 
