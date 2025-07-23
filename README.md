@@ -225,6 +225,37 @@ Type definitions are in the `src/types/` directory. Main types include:
 
 ## 📦 Deployment
 
+### Local Testing
+```bash
+# Test deployment readiness
+.\test-deployment.ps1
+```
+
+### Google Cloud Platform Deployment
+
+**🚀 Quick Deploy to Google Cloud:**
+
+1. **Prerequisites Setup**
+   ```powershell
+   # Install Google Cloud CLI
+   # https://cloud.google.com/sdk/docs/install
+   
+   # Test deployment readiness
+   .\test-deployment.ps1
+   ```
+
+2. **Setup Google Cloud Project**
+   ```powershell
+   .\deploy.ps1 -ProjectId "your-project-id" -SetupProject
+   ```
+
+3. **Deploy Application**
+   ```powershell
+   .\deploy.ps1 -ProjectId "your-project-id" -Deploy
+   ```
+
+**📚 For detailed deployment instructions, see [GOOGLE_CLOUD_DEPLOYMENT.md](GOOGLE_CLOUD_DEPLOYMENT.md)**
+
 ### Build for Production
 ```bash
 npm run build

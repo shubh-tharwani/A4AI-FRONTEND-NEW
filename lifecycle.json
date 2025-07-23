@@ -1,0 +1,14 @@
+{
+  "rule": [
+    {
+      "action": {"type": "Delete"},
+      "condition": {"age": 30},
+      "description": "Delete old build artifacts after 30 days"
+    },
+    {
+      "action": {"type": "SetStorageClass", "storageClass": "COLDLINE"},
+      "condition": {"age": 7},
+      "description": "Move to coldline storage after 7 days"
+    }
+  ]
+}

@@ -26,6 +26,64 @@ interface ActivityState {
   bookmarkedStories: Set<string>;
 }
 
+// Demo story generator for fallback mode
+const generateDemoStory = (request: { grade: number; topic: string }): Story => {
+  const { topic, grade } = request;
+  
+  const demoStory: Story = {
+    id: `demo_story_${Date.now()}`,
+    title: `Learning Adventure: ${topic}`,
+    content: `Welcome to an exciting learning adventure about ${topic}!
+
+Once upon a time, in a world not so different from ours, there lived a curious student just like you. This student was fascinated by ${topic} and wanted to learn everything about it.
+
+${topic} is an incredible subject that opens up a world of possibilities. When we study ${topic}, we discover amazing facts and concepts that help us understand the world better.
+
+Let me tell you more about ${topic}...
+
+In Grade ${grade}, students typically explore ${topic} through hands-on activities and engaging lessons. The key concepts include understanding the fundamentals, practicing critical thinking, and applying what we learn to real-world situations.
+
+Through this story, you'll discover:
+- The basic principles of ${topic}
+- How ${topic} affects our daily lives  
+- Fun facts that will amaze your friends
+- Ways to explore ${topic} further
+
+As our adventure continues, remember that learning about ${topic} is not just about memorizing facts. It's about developing curiosity, asking questions, and finding connections to other subjects you study.
+
+The best part about ${topic} is that there's always more to discover. Every question you ask leads to new learning opportunities, and every concept you master opens doors to more advanced topics.
+
+So let's embark on this learning journey together and see what amazing discoveries await us in the world of ${topic}!
+
+What questions do you have about ${topic}? What would you like to explore next?`,
+    summary: `An interactive learning story about ${topic} designed for Grade ${grade} students`,
+    grade: grade,
+    topic: topic,
+    language: 'English',
+    learning_objectives: [
+      `Understand the fundamental concepts of ${topic}`,
+      `Apply ${topic} knowledge to real-world scenarios`,
+      `Develop critical thinking skills related to ${topic}`,
+      `Build confidence in discussing ${topic} topics`
+    ],
+    discussion_questions: [
+      `What did you find most interesting about ${topic}?`,
+      `How can you apply what you learned about ${topic} in your daily life?`,
+      `What other subjects connect to ${topic}?`,
+      `What questions do you still have about ${topic}?`
+    ],
+    vocabulary_words: [
+      topic.toLowerCase(),
+      'learning',
+      'discovery',
+      'exploration',
+      'understanding'
+    ]
+  };
+  
+  return demoStory;
+};
+
 export default function Activities() {
   const [activityType, setActivityType] = useState<ActivityType>('story');
   const [loading, setLoading] = useState(false);
@@ -83,9 +141,16 @@ export default function Activities() {
       const response = await ApiService.Activities.createInteractiveStory(sanitizedData);
       
       console.log('📥 Interactive Story API response:', response);
+      console.log('📊 Response keys:', Object.keys(response));
+      console.log('📖 Story title:', response.title);
+      console.log('📝 Story text length:', response.story_text?.length);
+      console.log('🎯 Learning objectives:', response.learning_objectives);
+      console.log('📚 Vocabulary words:', response.vocabulary_words);
+      console.log('❓ Quizzes:', response.quizzes);
       
       // Enhanced response validation
       if (!response) {
+        console.log('❌ No response received from server');
         throw new Error('No response received from server');
       }
       
@@ -110,7 +175,12 @@ export default function Activities() {
             [`Learn about ${sanitizedData.topic}`],
           vocabulary_words: Array.isArray(response.vocabulary_words) ? 
             response.vocabulary_words.filter(word => word && word.trim()) : 
-            []
+            [],
+          // Extract discussion questions from quizzes if available
+          discussion_questions: Array.isArray(response.quizzes) ? 
+            response.quizzes.map(quiz => quiz.question).filter(q => q && q.trim()) :
+            [`What did you learn about ${sanitizedData.topic} from this story?`, 
+             `How can you apply this knowledge in real life?`]
         };
 
         // Ensure we have valid learning objectives
@@ -129,15 +199,50 @@ export default function Activities() {
           ...prev,
           currentStory: story,
         }));
+        
+        console.log('✅ Story successfully set in state:', story);
+        console.log('📊 Activity state updated, currentStory:', story.id);
+        console.log('📖 Story title:', story.title);
+        console.log('📝 Story content length:', story.content.length);
+        
         toast.success(`Interactive story "${story.title}" generated successfully!`);
       } else {
-        console.error('Invalid story structure:', response);
-        toast.error('Invalid story data received from server. Please try again.');
+        console.log('❌ Invalid story structure, using demo mode...');
+        console.log('📊 response.story_id exists:', !!response.story_id);
+        console.log('📊 response.story_text exists:', !!response.story_text);
+        
+        // Fallback to demo story when API response is invalid
+        const demoStory = generateDemoStory(data);
+        setActivityState(prev => ({
+          ...prev,
+          currentStory: demoStory,
+        }));
+        
+        toast.success(`📚 Demo Story created! (API returned invalid data)`, {
+          icon: '🎭',
+          duration: 4000,
+        });
       }
     } catch (error: any) {
       console.error('Story generation error:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to generate story';
-      toast.error(`Story generation failed: ${errorMessage}. Please try again.`);
+      console.log('🔄 API error, falling back to demo mode...');
+      
+      // Fallback to demo story when API fails
+      try {
+        const demoStory = generateDemoStory(data);
+        setActivityState(prev => ({
+          ...prev,
+          currentStory: demoStory,
+        }));
+        
+        toast.success(`📚 Demo Story created! Backend unavailable, using sample content.`, {
+          icon: '🎭',
+          duration: 4000,
+        });
+      } catch (demoError) {
+        console.error('Demo story generation failed:', demoError);
+        toast.error('Failed to generate story. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

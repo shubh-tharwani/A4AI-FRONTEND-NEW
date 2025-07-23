@@ -90,14 +90,32 @@ export default function EnhancedVoiceAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.messages]);
 
-  // Check API health on component mount
+  // Check API health and initialize session on component mount
   useEffect(() => {
-    const checkAPIHealth = async () => {
+    const initializeSession = async () => {
       try {
         setApiStatus('connecting');
+        
+        // Check API health
         await ApiService.Voice.healthCheck();
         setApiStatus('connected');
         toast.success('🟢 Voice Assistant API connected');
+        
+        // Load conversation history if session exists
+        const userId = 'current_user'; // This should come from auth context
+        try {
+          const conversationHistory = await ApiService.Voice.loadConversationHistory(userId, state.sessionId);
+          if (conversationHistory.length > 0) {
+            setState(prev => ({
+              ...prev,
+              messages: conversationHistory
+            }));
+            console.log('📜 Loaded conversation history:', conversationHistory.length, 'messages');
+          }
+        } catch (historyError) {
+          console.log('📝 Starting with fresh conversation session');
+        }
+        
       } catch (error) {
         setApiStatus('error');
         console.warn('Voice Assistant API not available:', error);
@@ -105,8 +123,8 @@ export default function EnhancedVoiceAssistant() {
       }
     };
 
-    checkAPIHealth();
-  }, []);
+    initializeSession();
+  }, [state.sessionId]);
 
   // File handling utilities
   const getFileType = (file: File): 'image' | 'document' | 'audio' | 'video' | 'text' => {
@@ -141,6 +159,68 @@ export default function EnhancedVoiceAssistant() {
       }
     });
   }, []);
+
+  // Session management functions
+  const createNewSession = async () => {
+    try {
+      const userId = 'current_user'; // This should come from auth context
+      const newSessionId = await ApiService.Voice.createSession(userId);
+      
+      setState(prev => ({
+        ...prev,
+        sessionId: newSessionId,
+        messages: [],
+        suggestions: [
+          "Explain quantum physics in simple terms",
+          "Help me write a research paper",
+          "Create a study plan for calculus",
+          "Analyze this document for key points",
+          "Generate creative writing prompts",
+          "Code review and optimization",
+          "Creative storytelling assistance",
+          "Data analysis and visualization"
+        ],
+        followUpQuestions: []
+      }));
+      
+      toast.success('🆕 New conversation started');
+      console.log('🆕 Created new session:', newSessionId);
+    } catch (error) {
+      console.error('Failed to create new session:', error);
+      toast.error('Failed to create new session');
+    }
+  };
+
+  const loadSession = async (sessionId: string) => {
+    try {
+      const userId = 'current_user'; // This should come from auth context
+      const conversationHistory = await ApiService.Voice.loadConversationHistory(userId, sessionId);
+      
+      setState(prev => ({
+        ...prev,
+        sessionId,
+        messages: conversationHistory,
+        followUpQuestions: []
+      }));
+      
+      toast.success('📂 Session loaded successfully');
+      console.log('📂 Loaded session:', sessionId, 'with', conversationHistory.length, 'messages');
+    } catch (error) {
+      console.error('Failed to load session:', error);
+      toast.error('Failed to load session');
+    }
+  };
+
+  const deleteCurrentSession = async () => {
+    try {
+      await ApiService.Voice.deleteSession(state.sessionId);
+      await createNewSession(); // Create a new session after deletion
+      toast.success('🗑️ Session deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      toast.error('Failed to delete session');
+    }
+  };
 
   const handleFileSelect = async (files: FileList) => {
     const fileArray = Array.from(files);
@@ -667,6 +747,32 @@ Please ensure the backend server is running at http://localhost:8000`,
               </p>
             </div>
             <div className="flex items-center space-x-3">
+              {/* Session Management Controls */}
+              <div className="flex items-center space-x-2 text-sm">
+                <button
+                  onClick={createNewSession}
+                  className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors duration-200 flex items-center space-x-1"
+                  title="Start new conversation"
+                >
+                  <SparklesIcon className="h-3 w-3" />
+                  <span>New Chat</span>
+                </button>
+                
+                <button
+                  onClick={deleteCurrentSession}
+                  disabled={state.messages.length === 0}
+                  className="bg-red-100 hover:bg-red-200 disabled:bg-gray-100 text-red-800 disabled:text-gray-400 px-3 py-1 rounded-lg text-xs font-medium transition-colors duration-200 flex items-center space-x-1"
+                  title="Delete current session"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                  <span>Clear</span>
+                </button>
+                
+                <div className="text-xs text-gray-500 px-2">
+                  Session: {state.sessionId.split('_').pop()?.substring(0, 8)}...
+                </div>
+              </div>
+              
               {/* Settings Panel */}
               <div className="flex items-center space-x-2 text-sm">
                 <select

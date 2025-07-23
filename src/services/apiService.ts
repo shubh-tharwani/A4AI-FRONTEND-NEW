@@ -23,7 +23,8 @@ import {
   TeacherDashboardResponse,
   PersonalizationResponse,
   PerformanceUpdateRequest,
-  ScoreRequest
+  ScoreRequest,
+  VoiceMessage
 } from '../types';
 
 // Authentication Service
@@ -294,7 +295,7 @@ export class PersonalizationService {
 
 // Voice Assistant Service
 export class VoiceService {
-  // Enhanced ChatGPT-like universal assistant
+  // Enhanced ChatGPT-like universal assistant with session management
   static async universalAssistant(request: EnhancedAssistantRequest): Promise<EnhancedAssistantResponse> {
     const formData = new FormData();
     
@@ -306,20 +307,31 @@ export class VoiceService {
       formData.append('message', request.message);
     }
     
-    // Add session info
+    // Add session info for conversation continuity
     if (request.session_id) {
       formData.append('session_id', request.session_id);
     }
     
-    // Add response format
-    if (request.preferences?.response_format) {
-      formData.append('response_format', request.preferences.response_format);
-    } else {
-      formData.append('response_format', 'auto');
-    }
+    // Add response format with proper audio handling
+    const responseFormat = request.preferences?.generate_audio ? 'both' : 'text';
+    formData.append('response_format', responseFormat);
     
-    // Add context (as JSON string, default to empty object)
-    const contextData = request.context || {};
+    // Build enhanced context with conversation history and preferences
+    const contextData = {
+      ...request.context,
+      conversation_history: request.conversation_history || [],
+      preferences: {
+        response_style: request.preferences?.response_style || 'conversational',
+        max_tokens: request.preferences?.max_tokens || 1500,
+        language: request.preferences?.language || 'en',
+        generate_audio: request.preferences?.generate_audio || false
+      },
+      timestamp: new Date().toISOString(),
+      session_context: {
+        session_id: request.session_id,
+        user_id: request.user_id
+      }
+    };
     formData.append('context', JSON.stringify(contextData));
     
     // Add audio file if provided
@@ -327,7 +339,7 @@ export class VoiceService {
       formData.append('audio_file', request.audio_file);
     }
     
-    // Add file upload if provided
+    // Add file upload if provided (single file as per OpenAPI spec)
     if (request.file_upload) {
       formData.append('file_upload', request.file_upload);
     }
@@ -335,27 +347,65 @@ export class VoiceService {
     // Handle legacy files array - take the first file as file_upload
     if (request.files && request.files.length > 0) {
       formData.append('file_upload', request.files[0]);
+      
+      // If there's a query about the file, add it
+      if (request.query || request.message) {
+        formData.append('query', request.query || request.message || 'Analyze this file');
+      }
     }
     
-    // Add query for file analysis
-    if (request.query) {
-      formData.append('query', request.query);
+    // Debug logging for development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎯 Voice Assistant Request:', {
+        user_id: request.user_id,
+        session_id: request.session_id,
+        has_message: !!request.message,
+        has_audio: !!request.audio_file,
+        has_file: !!(request.file_upload || (request.files && request.files.length > 0)),
+        response_format: responseFormat,
+        context_keys: Object.keys(contextData)
+      });
     }
     
-    // Use the new multipart form method
-    return apiClient.uploadMultiPartForm('/api/v1/voice/assistant', formData);
+    try {
+      // Use the multipart form method with proper error handling
+      const response = await apiClient.uploadMultiPartForm('/api/v1/voice/assistant', formData);
+      
+      // Ensure response has the expected structure
+      return {
+        message: response.message || 'Response received',
+        session_id: response.session_id || request.session_id,
+        audio_url: response.audio_url || null,
+        metadata: response.metadata || {
+          processing_time: 0,
+          model: 'unknown',
+          confidence: 1.0,
+          tokens_used: 0
+        },
+        suggestions: response.suggestions || [],
+        follow_up_questions: response.follow_up_questions || [],
+        attachments: response.attachments || []
+      };
+    } catch (error: any) {
+      // Enhanced error handling with session context
+      console.error('🚨 Voice Assistant API Error:', error);
+      
+      // Re-throw with enhanced error info
+      throw new Error(`Voice Assistant API Error: ${error.message || 'Unknown error'}`);
+    }
   }
 
-  // Text-only chat (using the dedicated text endpoint)
+  // Text-only chat with enhanced session handling
   static async textChat(request: TextRequest): Promise<any> {
     const payload = {
       user_id: request.user_id,
       message: request.message,
       session_id: request.session_id || null,
-      context: request.context || null,
+      context: request.context || {},
       generate_audio: request.generate_audio || false
     };
     
+    console.log('📝 Text chat request:', payload);
     return apiClient.post('/api/v1/voice/text-chat', payload);
   }
 
@@ -367,20 +417,72 @@ export class VoiceService {
     return apiClient.uploadMultiPartForm('/api/v1/voice/transcribe', formData);
   }
 
-  // Session management methods
-  static async getUserSessions(userId: string, limit?: number): Promise<any> {
-    const params = new URLSearchParams();
-    if (limit) params.append('limit', limit.toString());
-    
-    return apiClient.get(`/api/v1/voice/sessions/${userId}?${params.toString()}`);
+  // Session management methods - Enhanced with proper typing and error handling
+  static async getUserSessions(userId: string, limit: number = 50): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      params.append('limit', limit.toString());
+      
+      const response = await apiClient.get(`/api/v1/voice/sessions/${userId}?${params.toString()}`);
+      console.log('📂 User sessions retrieved:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to get user sessions:', error);
+      throw error;
+    }
   }
 
   static async getSession(userId: string, sessionId: string): Promise<any> {
-    return apiClient.get(`/api/v1/voice/sessions/${userId}/${sessionId}`);
+    try {
+      const response = await apiClient.get(`/api/v1/voice/sessions/${userId}/${sessionId}`);
+      console.log('💬 Session details retrieved:', { sessionId, messageCount: response?.messages?.length || 0 });
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to get session:', error);
+      throw error;
+    }
   }
 
   static async deleteSession(sessionId: string): Promise<any> {
-    return apiClient.delete(`/api/v1/voice/sessions/${sessionId}`);
+    try {
+      const response = await apiClient.delete(`/api/v1/voice/sessions/${sessionId}`);
+      console.log('🗑️ Session deleted:', sessionId);
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to delete session:', error);
+      throw error;
+    }
+  }
+
+  // Create a new session (helper method)
+  static async createSession(userId: string): Promise<string> {
+    const sessionId = `session_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log('🆕 Created new session:', sessionId);
+    return sessionId;
+  }
+
+  // Load conversation history for a session
+  static async loadConversationHistory(userId: string, sessionId: string): Promise<VoiceMessage[]> {
+    try {
+      const sessionData = await this.getSession(userId, sessionId);
+      
+      // Transform API response to VoiceMessage format
+      const messages: VoiceMessage[] = (sessionData?.messages || []).map((msg: any, index: number) => ({
+        id: msg.id || `msg_${index}_${Date.now()}`,
+        type: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content || msg.message || '',
+        timestamp: new Date(msg.timestamp || Date.now()),
+        audio_url: msg.audio_url || null,
+        metadata: msg.metadata || {},
+        attachments: msg.attachments || []
+      }));
+      
+      console.log('📜 Conversation history loaded:', { sessionId, messageCount: messages.length });
+      return messages;
+    } catch (error) {
+      console.warn('⚠️ Could not load conversation history, starting fresh:', error);
+      return [];
+    }
   }
 
   static async downloadAudio(filename: string): Promise<any> {
