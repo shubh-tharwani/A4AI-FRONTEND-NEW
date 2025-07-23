@@ -53,10 +53,8 @@ export default function Assessment() {
         return;
       }
 
-      // Use sanitized data
-      const sanitizedData = validation.sanitizedData;
-
-      const response = await ApiService.Assessment.createQuiz(sanitizedData);
+      // Use original data since validation passed
+      const response = await ApiService.Assessment.createQuiz(data);
       
       console.log('📥 Quiz API response:', response);
       

@@ -5,13 +5,14 @@ import { useAuthStore } from './store/authStore';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Import pages
-import LoginPage from './pages/auth/LoginPage';
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/auth/LoginPageNew';
 import RegisterPage from './pages/auth/RegisterPage';
 import StudentDashboard from './pages/dashboard/StudentDashboard';
 import Assessment from './pages/assessment/Assessment';
 import Activities from './pages/activities/Activities';
 import Planning from './pages/planning/Planning';
-import VoiceAssistant from './pages/voice-assistant/VoiceAssistant';
+import VoiceAssistant from './pages/voice-assistant/EnhancedVoiceAssistant';
 import VisualAids from './pages/visual-aids/VisualAids';
 import ARScene from './pages/ar-scene/ARScene';
 
@@ -20,7 +21,26 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  const user = useAuthStore((state) => state.user);
+  
+  // Check if user is authenticated and has valid session
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  
+  // If user is authenticated and has valid session, redirect to dashboard
+  if (isAuthenticated && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <>{children}</>;
 }
 
 function App() {
@@ -30,8 +50,28 @@ function App() {
         <Router>
           <div className="min-h-screen bg-gray-50">
             <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+              {/* Public routes - No authentication required */}
+              <Route path="/" element={
+                <PublicRoute>
+                  <LandingPage />
+                </PublicRoute>
+              } />
+              <Route path="/login" element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              } />
+              <Route path="/register" element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              } />
+              
+              {/* Additional public routes */}
+              <Route path="/privacy" element={<div className="p-8">Privacy Policy Page</div>} />
+              <Route path="/terms" element={<div className="p-8">Terms of Service Page</div>} />
+              <Route path="/support" element={<div className="p-8">Support Page</div>} />
+              <Route path="/forgot-password" element={<div className="p-8">Forgot Password Page</div>} />
               
               {/* Protected routes */}
               <Route path="/dashboard" element={
@@ -76,8 +116,8 @@ function App() {
                 </ProtectedRoute>
               } />
               
-              {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Default redirect for unknown routes */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
           <Toaster position="top-right" />
