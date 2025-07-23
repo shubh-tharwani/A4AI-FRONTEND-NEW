@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
+import { useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
@@ -44,6 +45,13 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const initializeAuth = useAuthStore((state) => state.initializeAuth);
+  
+  // Initialize authentication on app start
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -120,6 +128,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
+          
           <Toaster position="top-right" />
         </Router>
       </QueryClientProvider>

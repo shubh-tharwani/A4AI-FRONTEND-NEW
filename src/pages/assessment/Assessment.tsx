@@ -26,6 +26,80 @@ interface QuizState {
   startTime: Date;
 }
 
+// Demo questions generator for fallback mode
+const generateDemoQuestions = (request: QuizRequest): QuizQuestion[] => {
+  const { topic, grade, language } = request;
+  
+  const questionTemplates = [
+    {
+      question: `What is the main concept behind ${topic}?`,
+      options: [
+        `The fundamental principle of ${topic}`,
+        "A completely unrelated concept",
+        "Something that doesn't apply",
+        "An incorrect definition"
+      ],
+      answer: `The fundamental principle of ${topic}`,
+      difficulty: "medium"
+    },
+    {
+      question: `Which of the following best describes ${topic}?`,
+      options: [
+        "An incorrect description",
+        `A comprehensive understanding of ${topic}`,
+        "Something unrelated",
+        "A wrong definition"
+      ],
+      answer: `A comprehensive understanding of ${topic}`,
+      difficulty: "easy"
+    },
+    {
+      question: `In Grade ${grade}, how would you apply ${topic}?`,
+      options: [
+        "In an unrelated way",
+        "Incorrectly",
+        `Through practical application suitable for Grade ${grade} students`,
+        "Without understanding"
+      ],
+      answer: `Through practical application suitable for Grade ${grade} students`,
+      difficulty: "hard"
+    },
+    {
+      question: `What are the key benefits of studying ${topic}?`,
+      options: [
+        "No benefits at all",
+        `Enhanced understanding and practical skills in ${topic}`,
+        "Confusion and difficulty",
+        "Irrelevant knowledge"
+      ],
+      answer: `Enhanced understanding and practical skills in ${topic}`,
+      difficulty: "medium"
+    },
+    {
+      question: `Which study method works best for ${topic}?`,
+      options: [
+        "Ignoring the subject completely",
+        "Memorizing without understanding",
+        `Active learning with practical examples and regular practice`,
+        "Passive reading only"
+      ],
+      answer: `Active learning with practical examples and regular practice`,
+      difficulty: "easy"
+    }
+  ];
+
+  return questionTemplates.map((template, index) => ({
+    id: `demo_${index + 1}`,
+    question: template.question,
+    options: template.options,
+    answer: template.answer,
+    difficulty: template.difficulty,
+    grade_level: grade.toString(),
+    subject: topic,
+    language: language
+  }));
+};
+
 export default function Assessment() {
   const [step, setStep] = useState<AssessmentStep>('setup');
   const [loading, setLoading] = useState(false);
@@ -57,23 +131,43 @@ export default function Assessment() {
       const response = await ApiService.Assessment.createQuiz(data);
       
       console.log('📥 Quiz API response:', response);
+      console.log('📊 Response type:', typeof response);
+      console.log('📊 Response keys:', response ? Object.keys(response) : 'No response');
+      console.log('📊 Questions array:', response?.questions);
+      console.log('📊 Questions type:', typeof response?.questions);
+      console.log('📊 Questions length:', response?.questions?.length);
       
       // Enhanced response validation
       if (!response) {
+        console.log('❌ No response received from server');
         throw new Error('No response received from server');
       }
 
       if (response.questions && Array.isArray(response.questions) && response.questions.length > 0) {
+        console.log('✅ Valid questions array found with', response.questions.length, 'questions');
+        
         // Validate each question
-        const validQuestions = response.questions.filter(q => 
-          q && 
-          q.question && 
-          q.question.trim().length > 0 &&
-          ((q.options && Array.isArray(q.options) && q.options.length > 0) || !q.options) &&
-          q.answer
-        );
+        const validQuestions = response.questions.filter((q, index) => {
+          const isValid = q && 
+            q.question && 
+            q.question.trim().length > 0 &&
+            ((q.options && Array.isArray(q.options) && q.options.length > 0) || !q.options) &&
+            q.answer;
+          
+          if (!isValid) {
+            console.log(`❌ Invalid question at index ${index}:`, q);
+          } else {
+            console.log(`✅ Valid question at index ${index}:`, q.question?.substring(0, 50) + '...');
+          }
+          
+          return isValid;
+        });
+
+        console.log('📊 Valid questions count:', validQuestions.length, 'out of', response.questions.length);
+        console.log('📊 Valid questions count:', validQuestions.length, 'out of', response.questions.length);
 
         if (validQuestions.length === 0) {
+          console.log('❌ No valid questions found, throwing error');
           throw new Error('No valid questions received from server');
         }
 
@@ -95,13 +189,51 @@ export default function Assessment() {
         setStep('taking');
         toast.success(`Quiz created successfully with ${validQuestions.length} questions!`);
       } else {
-        console.error('Invalid response structure:', response);
-        toast.error('Invalid quiz data received from server. Please try again.');
+        console.log('❌ Invalid response structure detected:');
+        console.log('📊 response.questions exists:', !!response.questions);
+        console.log('📊 response.questions is array:', Array.isArray(response.questions));
+        console.log('📊 response.questions length:', response.questions?.length);
+        console.log('📊 Full response structure:', JSON.stringify(response, null, 2));
+        console.log('🔄 API failed, using demo mode...');
+        
+        // Fallback to demo questions when API fails
+        const demoQuestions = generateDemoQuestions(data);
+        setQuizState({
+          questions: demoQuestions,
+          currentQuestion: 0,
+          answers: new Array(demoQuestions.length).fill(''),
+          timeRemaining: demoQuestions.length * 60,
+          startTime: new Date(),
+        });
+        setStep('taking');
+        toast.success(`📚 Demo Quiz created! (${demoQuestions.length} questions)`, {
+          icon: '🎭',
+          duration: 4000,
+        });
       }
     } catch (error: any) {
       console.error('Quiz creation error:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create quiz';
-      toast.error(`Quiz creation failed: ${errorMessage}. Please try again.`);
+      console.log('🔄 API error, falling back to demo mode...');
+      
+      // Fallback to demo questions when API fails
+      try {
+        const demoQuestions = generateDemoQuestions(data);
+        setQuizState({
+          questions: demoQuestions,
+          currentQuestion: 0,
+          answers: new Array(demoQuestions.length).fill(''),
+          timeRemaining: demoQuestions.length * 60,
+          startTime: new Date(),
+        });
+        setStep('taking');
+        toast.success(`📚 Demo Quiz created! Backend unavailable, using sample questions.`, {
+          icon: '🎭',
+          duration: 4000,
+        });
+      } catch (demoError) {
+        console.error('Demo question generation failed:', demoError);
+        toast.error('Failed to create quiz. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

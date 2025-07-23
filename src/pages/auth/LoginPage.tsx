@@ -364,15 +364,15 @@ export default function LoginPage() {
                 <div className="space-y-2 text-xs text-gray-600">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">Student:</span>
-                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">student@demo.com</code>
+                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">test@googlea4ai.com</code>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="font-medium">Teacher:</span>
-                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">teacher@demo.com</code>
+                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">teacher@googlea4ai.com</code>
                   </div>
                   <div className="text-center pt-2 border-t border-primary-100/50">
                     <span className="font-medium">Password:</span>
-                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700 ml-2">password123</code>
+                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700 ml-2">A4ai@123</code>
                   </div>
                 </div>
               </motion.div>

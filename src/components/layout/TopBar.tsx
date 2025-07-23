@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   Bars3Icon,
   MagnifyingGlassIcon,
@@ -13,6 +14,7 @@ import {
   MoonIcon,
 } from '@heroicons/react/24/outline';
 import { cn } from '../../lib/utils';
+import { useAuthStore } from '../../store/authStore';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -30,8 +32,17 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   
+  const navigate = useNavigate();
+  const { logout } = useAuthStore();
+  
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
+  };
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -303,7 +314,10 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
                   </div>
                   
                   <div className="p-2 border-t border-gray-100">
-                    <button className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-red-50 rounded-lg transition-colors group">
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-red-50 rounded-lg transition-colors group"
+                    >
                       <ArrowRightOnRectangleIcon className="w-5 h-5 text-gray-500 group-hover:text-red-500" />
                       <span className="text-sm text-gray-700 group-hover:text-red-700">Sign Out</span>
                     </button>
