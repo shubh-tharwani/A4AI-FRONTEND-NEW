@@ -28,7 +28,8 @@ export default function Sidebar({ isOpen, onClose, userRole = 'student' }: Sideb
     if (href === '/dashboard') {
       return location.pathname === '/' || location.pathname === '/dashboard';
     }
-    return location.pathname.startsWith(href);
+    // Exact match for routes to prevent overlap (e.g., /voice and /voice-lite)
+    return location.pathname === href;
   };
 
   const sidebarVariants = {

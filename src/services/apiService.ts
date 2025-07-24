@@ -409,6 +409,17 @@ export class VoiceService {
     return apiClient.post('/api/v1/voice/text-chat', payload);
   }
 
+  // Simple text chat for Voice Lite (minimal payload)
+  static async simpleLiteChat(message: string): Promise<any> {
+    // As per OpenAPI spec, user_id and message are required
+    const payload = {
+      user_id: 'voice_lite_user',
+      message: message
+    };
+    console.log('💬 Voice Lite chat request:', payload);
+    return apiClient.post('/api/v1/voice/text-chat', payload);
+  }
+
   // Speech-to-text transcription
   static async transcribeAudio(audioFile: File): Promise<any> {
     const formData = new FormData();

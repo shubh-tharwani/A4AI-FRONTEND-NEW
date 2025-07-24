@@ -14,6 +14,7 @@ import Assessment from './pages/assessment/Assessment';
 import Activities from './pages/activities/Activities';
 import Planning from './pages/planning/Planning';
 import VoiceAssistant from './pages/voice-assistant/EnhancedVoiceAssistant';
+import VoiceLite from './pages/voice-lite/VoiceLite';
 import VisualAids from './pages/visual-aids/VisualAids';
 import ARScene from './pages/ar-scene/ARScene';
 
@@ -109,6 +110,12 @@ function App() {
               <Route path="/voice" element={
                 <ProtectedRoute>
                   <VoiceAssistant />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/voice-lite" element={
+                <ProtectedRoute>
+                  <VoiceLite />
                 </ProtectedRoute>
               } />
               
