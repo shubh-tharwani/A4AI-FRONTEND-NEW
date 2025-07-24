@@ -81,26 +81,26 @@ export default function Sidebar({ isOpen, onClose, userRole = 'student' }: Sideb
         variants={sidebarVariants}
         animate={isOpen ? 'open' : 'closed'}
         className={cn(
-          'fixed left-0 top-0 h-full w-80 bg-white border-r border-gray-200 shadow-large z-50 lg:translate-x-0 lg:static lg:z-auto',
+          'fixed left-0 top-0 h-full w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-large z-50 lg:translate-x-0 lg:static lg:z-auto',
           'flex flex-col'
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
               <AcademicCapIcon className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-display font-bold text-gray-900">A4AI</h1>
-              <p className="text-sm text-gray-600">Education Platform</p>
+              <h1 className="text-xl font-display font-bold text-gray-900 dark:text-white">A4AI</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Education Platform</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors lg:hidden"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors lg:hidden"
           >
-            <XMarkIcon className="w-5 h-5 text-gray-600" />
+            <XMarkIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
 
@@ -128,7 +128,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'student' }: Sideb
                     'hover:shadow-soft',
                     isActive
                       ? 'bg-gradient-primary text-white shadow-glow'
-                      : 'text-gray-700 hover:bg-surface-2 hover:text-gray-900'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-surface-2 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
                   )}
                 >
                   {/* Background glow effect */}
@@ -146,7 +146,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'student' }: Sideb
                       'w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200',
                       isActive 
                         ? 'bg-white/20 text-white' 
-                        : 'bg-gray-100 text-gray-600 group-hover:bg-primary-100 group-hover:text-primary-600'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 group-hover:bg-primary-100 dark:group-hover:bg-primary-900 group-hover:text-primary-600 dark:group-hover:text-primary-400'
                     )}>
                       <IconComponent className={cn(
                         'w-5 h-5 transition-all duration-200',
@@ -159,14 +159,14 @@ export default function Sidebar({ isOpen, onClose, userRole = 'student' }: Sideb
                       <div className="flex items-center justify-between">
                         <p className={cn(
                           'font-medium text-sm transition-colors',
-                          isActive ? 'text-white' : 'text-gray-900'
+                          isActive ? 'text-white' : 'text-gray-900 dark:text-gray-100'
                         )}>
                           {item.name}
                         </p>
                       </div>
                       <p className={cn(
                         'text-xs transition-colors mt-0.5',
-                        isActive ? 'text-white/80' : 'text-gray-500'
+                        isActive ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'
                       )}>
                         {item.description}
                       </p>

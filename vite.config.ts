@@ -38,9 +38,22 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-    host: true
+    host: true,
+    hmr: {
+      overlay: true
+    }
   },
   preview: {
     port: 3000
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Cache busting for production builds
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    }
   }
 })

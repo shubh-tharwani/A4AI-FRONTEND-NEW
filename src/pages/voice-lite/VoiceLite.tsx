@@ -213,7 +213,7 @@ export default function VoiceLite() {
           "max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg shadow-sm",
           isUser
             ? "bg-blue-500 text-white"
-            : "bg-gray-100 text-gray-900 border border-gray-200"
+            : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600"
         )}>
           <div className="text-sm whitespace-pre-wrap">
             {message.content}
@@ -246,11 +246,11 @@ export default function VoiceLite() {
             className="flex items-center justify-between"
           >
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center">
                 <ChatBubbleLeftRightIcon className="w-8 h-8 mr-3 text-blue-500" />
                 Voice Assistant Lite
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 Simple text-to-text conversation with AI assistant
               </p>
             </div>
@@ -270,7 +270,7 @@ export default function VoiceLite() {
         {/* Chat Container */}
         <div className="flex flex-col h-[calc(100%-8rem)] max-w-4xl mx-auto">
           {/* Messages Area */}
-          <div className="flex-1 bg-white rounded-t-xl border border-gray-200 p-6 overflow-y-auto">
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-t-xl border border-gray-200 dark:border-gray-700 p-6 overflow-y-auto">
             {state.messages.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -280,22 +280,22 @@ export default function VoiceLite() {
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <SparklesIcon className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   Welcome to Voice Assistant Lite
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
                   Start a simple text conversation with the AI assistant
                 </p>
                 
                 {/* Suggestions */}
                 <div className="max-w-2xl mx-auto">
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Try these suggestions:</h4>
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Try these suggestions:</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {suggestions.map((suggestion, index) => (
                       <button
                         key={index}
                         onClick={() => setInputMessage(suggestion)}
-                        className="bg-gray-50 hover:bg-gray-100 rounded-lg p-3 text-sm text-left transition-colors border border-gray-200"
+                        className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg p-3 text-sm text-left transition-colors border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                       >
                         {suggestion}
                       </button>
@@ -320,7 +320,7 @@ export default function VoiceLite() {
                 </AnimatePresence>
                 {state.isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 rounded-lg p-4 border border-gray-200">
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                       <LoadingSpinner size="sm" />
                     </div>
                   </div>
@@ -331,7 +331,7 @@ export default function VoiceLite() {
           </div>
 
           {/* Input Area */}
-          <div className="bg-white rounded-b-xl border-x border-b border-gray-200 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-b-xl border-x border-b border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-end space-x-4">
               {/* Text Input */}
               <div className="flex-1">
@@ -343,7 +343,7 @@ export default function VoiceLite() {
                   placeholder="Type your message here... (Enter to send, Shift+Enter for new line)"
                   disabled={state.isLoading}
                   rows={inputMessage.split('\n').length || 1}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[3rem] max-h-32"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[3rem] max-h-32 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
 

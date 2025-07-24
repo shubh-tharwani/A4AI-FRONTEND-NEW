@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/authStore';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -30,10 +31,10 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   
   const navigate = useNavigate();
   const { logout } = useAuthStore();
+  const { theme, toggleTheme } = useTheme();
   
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -104,16 +105,16 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-gray-200 shadow-soft">
+    <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700 shadow-soft">
       <div className="flex items-center justify-between px-4 py-3 lg:px-6">
         {/* Left Section */}
         <div className="flex items-center space-x-4">
           {/* Mobile Menu Button */}
           <button
             onClick={onMenuClick}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors lg:hidden"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors lg:hidden"
           >
-            <Bars3Icon className="w-6 h-6 text-gray-700" />
+            <Bars3Icon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
           </button>
 
           {/* Search Bar */}
@@ -128,16 +129,16 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
                 'pl-10 pr-4 py-2.5 w-80 xl:w-96',
-                'bg-gray-50 border border-gray-200 rounded-xl',
-                'focus:bg-white focus:border-primary-300 focus:ring-2 focus:ring-primary-100',
+                'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl',
+                'focus:bg-white dark:focus:bg-gray-700 focus:border-primary-300 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-800',
                 'transition-all duration-200 text-sm',
-                'placeholder:text-gray-500'
+                'placeholder:text-gray-500 dark:placeholder:text-gray-400 text-gray-900 dark:text-gray-100'
               )}
             />
             {/* Search Results - You can implement this */}
             {searchQuery && (
-              <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-large border border-gray-200 p-2">
-                <p className="text-sm text-gray-500 px-3 py-2">
+              <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-800 rounded-xl shadow-large border border-gray-200 dark:border-gray-600 p-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">
                   Search functionality can be implemented here
                 </p>
               </div>
@@ -149,15 +150,15 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
         <div className="flex items-center space-x-2">
           {/* Dark Mode Toggle */}
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
+            onClick={toggleTheme}
             className={cn(
               'p-2.5 rounded-xl transition-all duration-200',
-              'hover:bg-gray-100 hover:scale-105',
-              isDarkMode ? 'text-yellow-600' : 'text-gray-600'
+              'hover:bg-gray-100 dark:hover:bg-gray-800 hover:scale-105',
+              theme === 'dark' ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'
             )}
             title="Toggle dark mode"
           >
-            {isDarkMode ? (
+            {theme === 'dark' ? (
               <SunIcon className="w-5 h-5" />
             ) : (
               <MoonIcon className="w-5 h-5" />
@@ -168,9 +169,9 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
           <div className="relative" ref={notificationsRef}>
             <button
               onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-              className="relative p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
+              className="relative p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200 hover:scale-105"
             >
-              <BellIcon className="w-5 h-5 text-gray-600" />
+              <BellIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               {unreadCount > 0 && (
                 <motion.span
                   initial={{ scale: 0 }}
@@ -189,13 +190,13 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
-                  className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-large border border-gray-200 overflow-hidden"
+                  className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-large border border-gray-200 dark:border-gray-600 overflow-hidden"
                 >
-                  <div className="p-4 border-b border-gray-100">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">Notifications</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                       {unreadCount > 0 && (
-                        <span className="text-sm text-primary-600">{unreadCount} new</span>
+                        <span className="text-sm text-primary-600 dark:text-primary-400">{unreadCount} new</span>
                       )}
                     </div>
                   </div>
@@ -204,23 +205,23 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
                       <div
                         key={notification.id}
                         className={cn(
-                          'p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer',
-                          notification.unread && 'bg-primary-50/50'
+                          'p-4 border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer',
+                          notification.unread && 'bg-primary-50/50 dark:bg-primary-900/20'
                         )}
                       >
                         <div className="flex items-start space-x-3">
                           <div className={cn(
                             'w-2 h-2 rounded-full mt-2 flex-shrink-0',
-                            notification.unread ? 'bg-primary-500' : 'bg-gray-300'
+                            notification.unread ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
                           )} />
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-gray-900">
+                            <p className="font-medium text-sm text-gray-900 dark:text-white">
                               {notification.title}
                             </p>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                               {notification.message}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {notification.time}
                             </p>
                           </div>
@@ -228,8 +229,8 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
                       </div>
                     ))}
                   </div>
-                  <div className="p-3 border-t border-gray-100">
-                    <button className="w-full text-center text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors">
+                  <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                    <button className="w-full text-center text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors">
                       View all notifications
                     </button>
                   </div>
@@ -242,7 +243,7 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
+              className="flex items-center space-x-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200 hover:scale-105"
             >
               {user?.avatar ? (
                 <img
@@ -256,15 +257,15 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
                 </div>
               )}
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {user?.name || 'Guest User'}
                 </p>
-                <p className="text-xs text-gray-500 capitalize">
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                   {user?.role || 'Student'}
                 </p>
               </div>
               <ChevronDownIcon className={cn(
-                'w-4 h-4 text-gray-500 transition-transform duration-200',
+                'w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200',
                 isProfileOpen && 'rotate-180'
               )} />
             </button>

@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Import pages
 import LandingPage from './pages/LandingPage';
@@ -55,9 +56,10 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <div className="min-h-screen bg-gray-50">
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <Router>
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
             <Routes>
               {/* Public routes - No authentication required */}
               <Route path="/" element={
@@ -139,6 +141,7 @@ function App() {
           <Toaster position="top-right" />
         </Router>
       </QueryClientProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
