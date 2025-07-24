@@ -304,29 +304,34 @@ export class VoiceService {
   static async universalAssistant(request: EnhancedAssistantRequest): Promise<EnhancedAssistantResponse> {
     const formData = new FormData();
     
-    // Add user_id (required field according to OpenAPI spec)
+    // Required field
     formData.append('user_id', request.user_id);
     
-    // Add text message if provided (required field)
-    formData.append('message', request.message || '');
-    
-    // Add session info for conversation continuity (required field)
-    formData.append('session_id', request.session_id || '');
-    
-    // Add response format with proper audio handling
-    formData.append('response_format', request.preferences?.generate_audio ? 'both' : 'text');
-    
-    // Add language preference
-    formData.append('language', request.preferences?.language || 'en');
-    
-    // Add model parameters
-    formData.append('max_tokens', String(request.preferences?.max_tokens || 1500));
-    formData.append('response_style', request.preferences?.response_style || 'conversational');
-    
-    // Add conversation history for context
-    if (request.conversation_history?.length) {
-      formData.append('conversation_history', JSON.stringify(request.conversation_history));
+    // Optional fields as per OpenAPI spec
+    if (request.message) {
+      formData.append('message', request.message);
     }
+    
+    if (request.session_id) {
+      formData.append('session_id', request.session_id);
+    }
+    
+    // Response format based on preferences
+    const responseFormat = request.preferences?.generate_audio ? 'both' : 'text';
+    formData.append('response_format', responseFormat);
+    
+    // Context with preferences and history
+    const context = {
+      preferences: {
+        response_style: request.preferences?.response_style || 'conversational',
+        max_tokens: request.preferences?.max_tokens || 1500,
+        language: request.preferences?.language || 'en',
+        generate_audio: request.preferences?.generate_audio || false
+      },
+      conversation_history: request.conversation_history || [],
+      timestamp: new Date().toISOString()
+    };
+    formData.append('context', JSON.stringify(context));
     const contextData = {
       ...request.context,
       conversation_history: request.conversation_history || [],
@@ -349,18 +354,18 @@ export class VoiceService {
       formData.append('audio_file', request.audio_file);
     }
     
-    // Add file upload if provided (single file as per OpenAPI spec)
-    if (request.file_upload) {
-      formData.append('file_upload', request.file_upload);
+    // Handle audio file if provided
+    if (request.audio_file) {
+      formData.append('audio_file', request.audio_file);
     }
     
-    // Handle legacy files array - take the first file as file_upload
-    if (request.files && request.files.length > 0) {
-      formData.append('file_upload', request.files[0]);
+    // Handle file upload if provided
+    if (request.file_upload) {
+      formData.append('file_upload', request.file_upload);
       
-      // If there's a query about the file, add it
-      if (request.query || request.message) {
-        formData.append('query', request.query || request.message || 'Analyze this file');
+      // Add query about the file if provided
+      if (request.query) {
+        formData.append('query', request.query);
       }
     }
     
@@ -378,28 +383,29 @@ export class VoiceService {
       // Use the multipart form method with proper error handling
       const response = await apiClient.uploadMultiPartForm('/api/v1/voice/assistant', formData);
       
-      // Transform and normalize the response
-      const normalizedResponse = {
-        // If the message is just "Response received", we're still waiting for the real response
-        message: response.message === 'Response received' ? 'Waiting for AI response...' : response.message,
-        // Set ai_response from the response if available
-        ai_response: response.ai_response || response.assistant_response || response.answer || null,
+      // Transform and normalize the response according to OpenAPI spec
+      const normalizedResponse: EnhancedAssistantResponse = {
+        // Handle message field
+        message: response.message,
+        // If message is "Response received", treat it as a pending response
+        ai_response: response.message === 'Response received' ? 
+          'Processing your request...' : 
+          response.ai_response || response.message,
         session_id: response.session_id || request.session_id,
-        audio_url: response.audio_url || response.audio_file_path || null,
-        audio_file_path: response.audio_file_path || null,
-        audio_filename: response.audio_filename || null,
-        transcript: response.transcript || null,
-        status: response.status || 'success',
+        audio_url: response.audio_url,
+        audio_file_path: response.audio_file_path,
+        audio_filename: response.audio_filename,
+        transcript: response.transcript,
+        status: response.status,
         metadata: {
-          ...(response.metadata || {}),
-          processing_time: response.processing_time || 0,
-          model: response.model || 'unknown',
-          confidence: response.confidence || 1.0,
-          tokens_used: response.tokens_used || 0
+          processing_time: response.metadata?.processing_time || 0,
+          model: response.metadata?.model || 'unknown',
+          confidence: response.metadata?.confidence || 1.0,
+          tokens_used: response.metadata?.tokens_used || 0
         },
-        suggestions: response.suggestions || [],
-        follow_up_questions: response.follow_up_questions || [],
-        attachments: response.attachments || []
+        suggestions: Array.isArray(response.suggestions) ? response.suggestions : [],
+        follow_up_questions: Array.isArray(response.follow_up_questions) ? response.follow_up_questions : [],
+        attachments: Array.isArray(response.attachments) ? response.attachments : []
       };
 
       // Log the normalized response in development
@@ -465,9 +471,9 @@ export class VoiceService {
     }
   }
 
-  static async getSession(userId: string, sessionId: string): Promise<any> {
+  static async getSession(sessionId: string): Promise<any> {
     try {
-      const response = await apiClient.get(`/api/v1/voice/sessions/${userId}/${sessionId}`);
+      const response = await apiClient.get(`/api/v1/voice/sessions/current_user/${sessionId}`);
       console.log('💬 Session details retrieved:', { sessionId, messageCount: response?.messages?.length || 0 });
       return response;
     } catch (error) {
@@ -495,9 +501,9 @@ export class VoiceService {
   }
 
   // Load conversation history for a session
-  static async loadConversationHistory(userId: string, sessionId: string): Promise<VoiceMessage[]> {
+  static async loadConversationHistory(sessionId: string): Promise<VoiceMessage[]> {
     try {
-      const sessionData = await this.getSession(userId, sessionId);
+      const sessionData = await this.getSession(sessionId);
       
       // Transform API response to VoiceMessage format
       const messages: VoiceMessage[] = (sessionData?.messages || []).map((msg: any, index: number) => ({

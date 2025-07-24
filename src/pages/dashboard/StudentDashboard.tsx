@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   BookOpenIcon, 
   TrophyIcon, 
@@ -42,6 +43,7 @@ interface Badge {
 }
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState({
@@ -182,20 +184,19 @@ export default function StudentDashboard() {
     <Navigation>
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-800 to-accent-800 bg-clip-text text-transparent">
-              Welcome back, {user?.display_name?.split(' ')[0] || 'Student'}! 👋
-            </h1>
-            <p className="text-neutral-600 mt-2">
-              Ready to continue your learning journey? Let's see what's new today.
-            </p>
-          </motion.div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-800 to-accent-800 bg-clip-text text-transparent">
+            Welcome back, {user?.display_name?.split(' ')[0] || 'Student'}! 👋
+          </h1>
+          <div className="text-neutral-600 mt-2">
+            Ready to continue your learning journey? Let's see what's new today.
+          </div>
+        </motion.div>
 
         {/* Dashboard Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -339,7 +340,10 @@ export default function StudentDashboard() {
             Quick Actions
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="bg-gradient-to-r from-primary-500 to-primary-600 text-white p-6 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all duration-300 group shadow-soft hover:shadow-medium">
+            <button 
+              onClick={() => navigate('/voice')} 
+              className="bg-gradient-to-r from-primary-500 to-primary-600 text-white p-6 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all duration-300 group shadow-soft hover:shadow-medium"
+            >
               <div className="flex items-center space-x-3">
                 <MicrophoneIcon className="w-8 h-8 group-hover:scale-110 transition-transform duration-300" />
                 <div className="text-left">
@@ -349,7 +353,10 @@ export default function StudentDashboard() {
               </div>
             </button>
 
-            <button className="bg-gradient-to-r from-accent-500 to-accent-600 text-white p-6 rounded-xl hover:from-accent-600 hover:to-accent-700 transition-all duration-300 group shadow-soft hover:shadow-medium">
+            <button 
+              onClick={() => navigate('/ar-scene')} 
+              className="bg-gradient-to-r from-accent-500 to-accent-600 text-white p-6 rounded-xl hover:from-accent-600 hover:to-accent-700 transition-all duration-300 group shadow-soft hover:shadow-medium"
+            >
               <div className="flex items-center space-x-3">
                 <CubeIcon className="w-8 h-8 group-hover:scale-110 transition-transform duration-300" />
                 <div className="text-left">
@@ -359,7 +366,10 @@ export default function StudentDashboard() {
               </div>
             </button>
 
-            <button className="bg-gradient-to-r from-secondary-500 to-secondary-600 text-white p-6 rounded-xl hover:from-secondary-600 hover:to-secondary-700 transition-all duration-300 group shadow-soft hover:shadow-medium">
+            <button 
+              onClick={() => navigate('/assessment')}
+              className="bg-gradient-to-r from-secondary-500 to-secondary-600 text-white p-6 rounded-xl hover:from-secondary-600 hover:to-secondary-700 transition-all duration-300 group shadow-soft hover:shadow-medium"
+            >
               <div className="flex items-center space-x-3">
                 <ChartBarIcon className="w-8 h-8 group-hover:scale-110 transition-transform duration-300" />
                 <div className="text-left">

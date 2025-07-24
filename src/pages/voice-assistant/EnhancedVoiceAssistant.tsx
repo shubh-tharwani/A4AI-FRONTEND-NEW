@@ -102,9 +102,8 @@ export default function EnhancedVoiceAssistant() {
         toast.success('🟢 Voice Assistant API connected');
         
         // Load conversation history if session exists
-        const userId = 'current_user'; // This should come from auth context
         try {
-          const conversationHistory = await ApiService.Voice.loadConversationHistory(userId, state.sessionId);
+          const conversationHistory = await ApiService.Voice.loadConversationHistory(state.sessionId);
           if (conversationHistory.length > 0) {
             setState(prev => ({
               ...prev,
