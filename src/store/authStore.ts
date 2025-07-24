@@ -11,7 +11,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
   signup: (userData: SignupRequest) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   initializeAuth: () => void;
   verifyToken: () => Promise<boolean>;
   refreshToken: () => Promise<void>;
@@ -111,19 +111,33 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
-        // Clear localStorage
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('refresh_token');
+      logout: async () => {
+        try {
+          // Call the backend logout API to invalidate the token
+          await ApiService.Auth.logout();
+        } catch (error: any) {
+          // Log the error but don't prevent logout from completing
+          console.error('Backend logout failed:', error);
+          
+          // Show a warning but still proceed with local logout
+          const errorMessage = error.response?.data?.message || error.message;
+          if (errorMessage) {
+            toast.error(`Logout warning: ${errorMessage}`);
+          }
+        } finally {
+          // Always clear local storage and state regardless of API call result
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('refresh_token');
 
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-        });
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+          });
 
-        toast.success('Logged out successfully');
+          toast.success('Logged out successfully');
+        }
       },
 
       initializeAuth: () => {
@@ -155,7 +169,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await ApiService.Auth.verifyToken();
           return !!response; // Convert to boolean
         } catch (error) {
-          get().logout();
+          await get().logout();
           return false;
         }
       },
@@ -175,7 +189,7 @@ export const useAuthStore = create<AuthState>()(
             set({ token: newToken });
           }
         } catch (error) {
-          get().logout();
+          await get().logout();
           throw error;
         }
       },

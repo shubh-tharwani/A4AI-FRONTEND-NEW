@@ -113,6 +113,12 @@ export interface VoiceMessage {
   content: string;
   timestamp: string | Date;
   audio_url?: string;
+  audio_file_path?: string;
+  audio_filename?: string;
+  ai_response?: string;
+  transcript?: string;
+  status?: string;
+  session_id?: string;
   attachments?: ChatAttachment[];
   metadata?: MessageMetadata;
 }
@@ -142,15 +148,20 @@ export interface MessageMetadata {
 
 export interface EnhancedAssistantRequest {
   user_id: string;
-  message?: string;
-  session_id?: string;
+  message: string;
+  session_id: string;
+  audio_url?: string;
   audio_file?: File;
   file_upload?: File;
-  query?: string;
-  context?: Record<string, any>;
-  // Legacy support
+  attachments?: ChatAttachment[];
+  metadata?: any;
+  suggestions?: string[];
+  follow_up_questions?: string[];
+  ai_response?: string;
   files?: File[];  // Keep for compatibility
   conversation_history?: any[];  // Keep for compatibility
+  context?: Record<string, any>;
+  query?: string;
   preferences?: {
     response_format?: 'text' | 'audio' | 'both' | 'auto';
     generate_audio?: boolean;
@@ -164,10 +175,21 @@ export interface EnhancedAssistantResponse {
   message: string;
   session_id: string;
   audio_url?: string;
+  audio?: string;
+  voice_url?: string;
+  audio_file_path?: string;
+  audio_filename?: string;
+  transcript?: string;
+  status?: string;
   attachments?: ChatAttachment[];
+  files?: ChatAttachment[];
   metadata: MessageMetadata;
   suggestions?: string[];
+  hints?: string[];
   follow_up_questions?: string[];
+  followups?: string[];
+  questions?: string[];
+  ai_response?: string;
 }
 
 // Visual Aids Types

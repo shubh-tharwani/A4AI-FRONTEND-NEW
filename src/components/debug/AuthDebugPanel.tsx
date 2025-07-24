@@ -23,9 +23,14 @@ const AuthDebugPanel: React.FC = () => {
     navigate(url);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      // Error handling is done in the logout function
+      navigate('/');
+    }
   };
 
   return (

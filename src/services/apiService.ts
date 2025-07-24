@@ -1,5 +1,6 @@
 // Updated API Service implementation aligned with OpenAPI 3.1.0 specification
 import apiClient from '../lib/api';
+import { logApiCall } from '../utils/logging';
 import {
   LoginRequest,
   SignupRequest,
@@ -63,6 +64,10 @@ export class AuthService {
 
   static async verifyToken(): Promise<any> {
     return apiClient.get('/api/v1/auth/verify-token');
+  }
+
+  static async logout(): Promise<any> {
+    return apiClient.post('/api/v1/auth/logout');
   }
 
   static async healthCheck(): Promise<any> {
@@ -302,21 +307,26 @@ export class VoiceService {
     // Add user_id (required field according to OpenAPI spec)
     formData.append('user_id', request.user_id);
     
-    // Add text message if provided
-    if (request.message) {
-      formData.append('message', request.message);
-    }
+    // Add text message if provided (required field)
+    formData.append('message', request.message || '');
     
-    // Add session info for conversation continuity
-    if (request.session_id) {
-      formData.append('session_id', request.session_id);
-    }
+    // Add session info for conversation continuity (required field)
+    formData.append('session_id', request.session_id || '');
     
     // Add response format with proper audio handling
-    const responseFormat = request.preferences?.generate_audio ? 'both' : 'text';
-    formData.append('response_format', responseFormat);
+    formData.append('response_format', request.preferences?.generate_audio ? 'both' : 'text');
     
-    // Build enhanced context with conversation history and preferences
+    // Add language preference
+    formData.append('language', request.preferences?.language || 'en');
+    
+    // Add model parameters
+    formData.append('max_tokens', String(request.preferences?.max_tokens || 1500));
+    formData.append('response_style', request.preferences?.response_style || 'conversational');
+    
+    // Add conversation history for context
+    if (request.conversation_history?.length) {
+      formData.append('conversation_history', JSON.stringify(request.conversation_history));
+    }
     const contextData = {
       ...request.context,
       conversation_history: request.conversation_history || [],
@@ -354,38 +364,50 @@ export class VoiceService {
       }
     }
     
-    // Debug logging for development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🎯 Voice Assistant Request:', {
-        user_id: request.user_id,
-        session_id: request.session_id,
-        has_message: !!request.message,
-        has_audio: !!request.audio_file,
-        has_file: !!(request.file_upload || (request.files && request.files.length > 0)),
-        response_format: responseFormat,
-        context_keys: Object.keys(contextData)
-      });
-    }
+    logApiCall('Voice Assistant Request', {
+      user_id: request.user_id,
+      session_id: request.session_id,
+      has_message: !!request.message,
+      has_audio: !!request.audio_file,
+      has_file: !!(request.file_upload || (request.files && request.files.length > 0)),
+      response_format: request.preferences?.generate_audio ? 'both' : 'text',
+      context_keys: Object.keys(contextData)
+    });
     
     try {
       // Use the multipart form method with proper error handling
       const response = await apiClient.uploadMultiPartForm('/api/v1/voice/assistant', formData);
       
-      // Ensure response has the expected structure
-      return {
-        message: response.message || 'Response received',
+      // Transform and normalize the response
+      const normalizedResponse = {
+        // If the message is just "Response received", we're still waiting for the real response
+        message: response.message === 'Response received' ? 'Waiting for AI response...' : response.message,
+        // Set ai_response from the response if available
+        ai_response: response.ai_response || response.assistant_response || response.answer || null,
         session_id: response.session_id || request.session_id,
-        audio_url: response.audio_url || null,
-        metadata: response.metadata || {
-          processing_time: 0,
-          model: 'unknown',
-          confidence: 1.0,
-          tokens_used: 0
+        audio_url: response.audio_url || response.audio_file_path || null,
+        audio_file_path: response.audio_file_path || null,
+        audio_filename: response.audio_filename || null,
+        transcript: response.transcript || null,
+        status: response.status || 'success',
+        metadata: {
+          ...(response.metadata || {}),
+          processing_time: response.processing_time || 0,
+          model: response.model || 'unknown',
+          confidence: response.confidence || 1.0,
+          tokens_used: response.tokens_used || 0
         },
         suggestions: response.suggestions || [],
         follow_up_questions: response.follow_up_questions || [],
         attachments: response.attachments || []
       };
+
+      // Log the normalized response in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Normalized API Response:', normalizedResponse);
+      }
+
+      return normalizedResponse;
     } catch (error: any) {
       // Enhanced error handling with session context
       console.error('🚨 Voice Assistant API Error:', error);

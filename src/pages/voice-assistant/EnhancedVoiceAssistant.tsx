@@ -191,26 +191,6 @@ export default function EnhancedVoiceAssistant() {
     }
   };
 
-  const loadSession = async (sessionId: string) => {
-    try {
-      const userId = 'current_user'; // This should come from auth context
-      const conversationHistory = await ApiService.Voice.loadConversationHistory(userId, sessionId);
-      
-      setState(prev => ({
-        ...prev,
-        sessionId,
-        messages: conversationHistory,
-        followUpQuestions: []
-      }));
-      
-      toast.success('📂 Session loaded successfully');
-      console.log('📂 Loaded session:', sessionId, 'with', conversationHistory.length, 'messages');
-    } catch (error) {
-      console.error('Failed to load session:', error);
-      toast.error('Failed to load session');
-    }
-  };
-
   const deleteCurrentSession = async () => {
     try {
       await ApiService.Voice.deleteSession(state.sessionId);
@@ -356,6 +336,7 @@ export default function EnhancedVoiceAssistant() {
     }
   };
 
+  // Fix: Normalize API response to expected format in sendMessage
   const sendMessage = async (message: string, type: 'text' | 'voice' = 'text', audioFiles: File[] = []) => {
     if (!message.trim() && filePreviews.length === 0 && audioFiles.length === 0) {
       toast.error('Please enter a message or attach files');
@@ -405,9 +386,8 @@ export default function EnhancedVoiceAssistant() {
 
     try {
       setLoading(true);
-      
       const request: EnhancedAssistantRequest = {
-        user_id: 'current_user', // This should come from auth context
+        user_id: 'current_user',
         message: sanitizedMessage,
         session_id: state.sessionId,
         files: allFiles,
@@ -417,7 +397,7 @@ export default function EnhancedVoiceAssistant() {
           max_tokens: maxTokens,
           language: 'en'
         },
-        conversation_history: state.messages.slice(-15), // More context for better responses
+        conversation_history: state.messages.slice(-15),
         context: {
           timestamp: new Date().toISOString(),
           user_preferences: { responseStyle, maxTokens, generateAudio }
@@ -435,6 +415,36 @@ export default function EnhancedVoiceAssistant() {
       try {
         response = await ApiService.Voice.universalAssistant(request);
         setApiStatus('connected');
+        
+        // If we get "Response received", poll for the actual response
+        if (response.message === 'Response received' || response.message === 'Waiting for AI response...') {
+          let attempts = 0;
+          const maxAttempts = 30; // 30 seconds timeout
+          
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+            
+            try {
+              const pollResponse = await ApiService.Voice.universalAssistant({
+                ...request,
+                message: 'poll', // Indicate this is a poll request
+              });
+              
+              if (pollResponse.message !== 'Response received' && pollResponse.message !== 'Waiting for AI response...') {
+                response = pollResponse;
+                break;
+              }
+            } catch (pollError) {
+              console.warn('Polling attempt failed:', pollError);
+            }
+            
+            attempts++;
+          }
+          
+          if (attempts >= maxAttempts) {
+            throw new Error('Response timeout after 30 seconds');
+          }
+        }
       } catch (apiError: any) {
         console.warn('API call failed, using fallback response:', apiError);
         setApiStatus('error');
@@ -483,31 +493,44 @@ Please ensure the backend server is running at http://localhost:8000`,
       
       console.log('📥 Enhanced Voice Assistant API response:', response);
       
-      // Enhanced response validation
-      if (!response) {
-        throw new Error('No response received from server');
+      // --- Normalize response ---
+      // If response is not in expected format, map fields
+      let content = '';
+      
+      // First try to get meaningful content from either ai_response or message
+      content = response.ai_response || response.message;
+      
+      // If content is "Response received" or empty, try transcript
+      if (!content || content === 'Response received') {
+        content = response.transcript || 'No response content available';
       }
       
-      const responseText = response.message;
-      if (!responseText) {
-        throw new Error('Invalid response: missing message content');
+      let audioUrl = response.audio_url || response.audio_file_path || response.audio || response.voice_url || undefined;
+      
+      // Update session ID if it changed
+      if (response.session_id && response.session_id !== state.sessionId) {
+        setState(prev => ({ ...prev, sessionId: response.session_id }));
       }
-
+      let attachments = response.attachments || response.files || [];
+      let metadata = response.metadata || {};
+      let suggestions = response.suggestions || response.hints || [];
+      let followUpQuestions = response.follow_up_questions || response.followups || response.questions || [];
+      // --- End normalization ---
       const assistantMessage: VoiceMessage = {
         id: `assistant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         type: 'assistant',
-        content: responseText,
+        content: content, // Use the normalized content variable we created above
         timestamp: new Date().toISOString(),
-        audio_url: response.audio_url,
-        attachments: response.attachments,
-        metadata: response.metadata
+        audio_url: audioUrl,
+        attachments: attachments,
+        metadata: metadata
       };
 
       setState(prev => ({
         ...prev,
         messages: [...prev.messages, assistantMessage],
-        suggestions: response.suggestions || prev.suggestions,
-        followUpQuestions: response.follow_up_questions || []
+        suggestions: suggestions.length ? suggestions : prev.suggestions,
+        followUpQuestions: followUpQuestions
       }));
 
       toast.success('✨ Response generated successfully!');
@@ -666,7 +689,7 @@ Please ensure the backend server is running at http://localhost:8000`,
             : "bg-white text-gray-900 border border-gray-200"
         )}>
           <div className="text-sm whitespace-pre-wrap max-w-none leading-relaxed">
-            {message.content}
+            {message.content === 'Response received' ? '' : message.content}
           </div>
           
           {message.attachments && message.attachments.length > 0 && (

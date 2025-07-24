@@ -312,7 +312,7 @@ export default function LoginPage() {
                   </div>
                   <div>
                     <strong>Teacher:</strong>{' '}
-                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">teacher@googlea4ai.com</code>
+                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">neha.teacher@googlea4ai.com</code>
                   </div>
                   <div>
                     <strong>Password:</strong>

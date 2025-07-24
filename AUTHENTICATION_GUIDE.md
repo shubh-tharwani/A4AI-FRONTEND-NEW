@@ -114,7 +114,7 @@ The temporary debug panel (bottom-right corner) shows:
 1. **Start unauthenticated** → Should see landing page
 2. **Try protected routes** → Should redirect to login
 3. **Login with demo credentials**:
-   - Teacher: `teacher@googlea4ai.com` / `A4ai@123`
+   - Teacher: `neha.teacher@googlea4ai.com` / `A4ai@123`
    - Student: `test@googlea4ai.com` / `A4ai@123`
 4. **After login** → Should redirect to dashboard
 5. **Try public routes** → Should redirect to dashboard
@@ -124,7 +124,7 @@ The temporary debug panel (bottom-right corner) shows:
 
 ### Built-in Test Accounts:
 - **Teacher Account**:
-  - Email: `teacher@googlea4ai.com`
+  - Email: `neha.teacher@googlea4ai.com`
   - Password: `A4ai@123`
   - Role: `teacher`
 

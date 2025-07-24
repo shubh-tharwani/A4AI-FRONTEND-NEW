@@ -368,7 +368,7 @@ export default function LoginPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="font-medium">Teacher:</span>
-                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">teacher@googlea4ai.com</code>
+                    <code className="bg-white/70 px-2 py-1 rounded text-gray-700">neha.teacher@googlea4ai.com</code>
                   </div>
                   <div className="text-center pt-2 border-t border-primary-100/50">
                     <span className="font-medium">Password:</span>

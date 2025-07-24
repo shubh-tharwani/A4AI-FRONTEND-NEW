@@ -1,8 +1,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import toast from 'react-hot-toast';
 
+import { logApiCall } from '../utils/logging';
+
 // API Configuration
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 class ApiClient {
   private instance: AxiosInstance;
@@ -31,9 +33,11 @@ class ApiClient {
         } else {
           console.log('❌ No auth token found in localStorage');
         }
-        return config;
+        logApiCall('Request config', config);
+      return config;
       },
       (error) => {
+        logApiCall('Request error', error);
         return Promise.reject(error);
       }
     );

@@ -40,9 +40,15 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
   const notificationsRef = useRef<HTMLDivElement>(null);
 
   // Handle logout
-  const handleLogout = () => {
-    logout();
-    navigate('/', { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/', { replace: true });
+    } catch (error) {
+      // Error handling is done in the logout function
+      // Still navigate away in case of issues
+      navigate('/', { replace: true });
+    }
   };
 
   // Close dropdowns when clicking outside
