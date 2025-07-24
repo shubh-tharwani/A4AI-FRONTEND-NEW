@@ -8,7 +8,6 @@ import {
   ChartBarIcon,
   PlayIcon,
   MicrophoneIcon,
-  CubeIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
 import Navigation from '../../components/layout/Navigation';
@@ -568,6 +567,7 @@ export default function StudentDashboard() {
               </div>
             </button>
 
+            {/* AR Experience button temporarily hidden
             <button 
               onClick={() => {
                 try {
@@ -587,6 +587,7 @@ export default function StudentDashboard() {
                 </div>
               </div>
             </button>
+            */}
 
             <button 
               onClick={() => {
