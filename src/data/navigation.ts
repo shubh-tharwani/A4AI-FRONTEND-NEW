@@ -6,9 +6,18 @@ import {
   DocumentTextIcon,
   UserGroupIcon,
   ChartBarIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
-export const navigationItems = [
+export interface NavigationItem {
+  name: string;
+  description: string;
+  href: string;
+  icon: any; // Using 'any' for HeroIcon components
+  requiredRoles?: ('student' | 'teacher' | 'admin')[];
+}
+
+export const navigationItems: NavigationItem[] = [
   {
     name: 'Dashboard',
     description: 'Overview and analytics',
@@ -55,6 +64,13 @@ export const navigationItems = [
     description: 'Educational visual content',
     href: '/visual-aids',
     icon: ChartBarIcon,
+    requiredRoles: ['teacher', 'admin'],
+  },
+  {
+    name: 'AgenticAI',
+    description: 'AI-powered education tools',
+    href: '/agentic',
+    icon: SparklesIcon,
     requiredRoles: ['teacher', 'admin'],
   },
 ];
