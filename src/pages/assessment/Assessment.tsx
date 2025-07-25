@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import {
@@ -7,9 +7,11 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
+  DocumentTextIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
 import Navigation from '../../components/layout/Navigation';
-import { QuizRequest, QuizQuestion } from '../../types';
+import { QuizRequest } from '../../types';
 import { getGradeLabel, cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
@@ -18,73 +20,126 @@ import { validateFormData, AssessmentValidationSchema, showValidationErrors } fr
 
 type AssessmentStep = 'setup' | 'taking' | 'results';
 
+// Updated interfaces to match backend API response
+interface ApiQuizQuestion {
+  type: 'mcq' | 'open-ended';
+  question: string;
+  options?: string[];
+  correct_answer?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  rubric?: Record<string, string>;
+}
+
+interface ApiQuizResponse {
+  questions: ApiQuizQuestion[];
+  assessment_id: string;
+}
+
+interface InternalQuizQuestion {
+  id: string;
+  question: string;
+  options?: string[];
+  answer: string;
+  difficulty: string;
+  type: 'multiple_choice' | 'open_ended';
+  rubric?: Record<string, string>;
+  grade_level?: string;
+  subject?: string;
+  language?: string;
+}
+
 interface QuizState {
-  questions: QuizQuestion[];
+  questions: InternalQuizQuestion[];
   currentQuestion: number;
   answers: string[];
   timeRemaining: number;
   startTime: Date;
+  assessmentId?: string;
 }
 
+// Convert API question format to internal format
+const convertApiQuestionToInternal = (apiQuestion: ApiQuizQuestion, index: number): InternalQuizQuestion => {
+  console.log(`Converting question ${index + 1}:`, apiQuestion);
+  
+  // Handle different possible field names
+  const questionType = apiQuestion.type || (apiQuestion as any).question_type;
+  const questionText = apiQuestion.question || (apiQuestion as any).question_text;
+  const options = apiQuestion.options || (apiQuestion as any).choices || (apiQuestion as any).answers;
+  const correctAnswer = apiQuestion.correct_answer || (apiQuestion as any).answer || (apiQuestion as any).correct_option;
+  const difficulty = apiQuestion.difficulty || 'medium';
+  const rubric = apiQuestion.rubric || (apiQuestion as any).scoring_rubric;
+  
+  if (questionType === 'mcq' || questionType === 'multiple_choice') {
+    // Extract the correct answer from options using the letter
+    const correctOptionLetter = correctAnswer || 'A';
+    const correctOption = options?.find((opt: string) => 
+      opt.trim().toLowerCase().startsWith(correctOptionLetter.toLowerCase() + '.')
+    );
+    
+    return {
+      id: `q_${index + 1}`,
+      question: questionText,
+      options: options || [],
+      answer: correctOption || options?.[0] || '',
+      difficulty: difficulty,
+      type: 'multiple_choice'
+    };
+  } else {
+    // Open-ended question
+    return {
+      id: `q_${index + 1}`,
+      question: questionText,
+      options: [],
+      answer: '', // Will be evaluated against rubric
+      difficulty: difficulty,
+      type: 'open_ended',
+      rubric: rubric
+    };
+  }
+};
+
 // Demo questions generator for fallback mode
-const generateDemoQuestions = (request: QuizRequest): QuizQuestion[] => {
+const generateDemoQuestions = (request: QuizRequest): InternalQuizQuestion[] => {
   const { topic, grade, language } = request;
   
   const questionTemplates = [
     {
       question: `What is the main concept behind ${topic}?`,
       options: [
-        `The fundamental principle of ${topic}`,
-        "A completely unrelated concept",
-        "Something that doesn't apply",
-        "An incorrect definition"
+        `A. The fundamental principle of ${topic}`,
+        "B. A completely unrelated concept",
+        "C. Something that doesn't apply",
+        "D. An incorrect definition"
       ],
-      answer: `The fundamental principle of ${topic}`,
-      difficulty: "medium"
+      answer: `A. The fundamental principle of ${topic}`,
+      difficulty: "medium",
+      type: 'multiple_choice' as const
     },
     {
       question: `Which of the following best describes ${topic}?`,
       options: [
-        "An incorrect description",
-        `A comprehensive understanding of ${topic}`,
-        "Something unrelated",
-        "A wrong definition"
+        "A. An incorrect description",
+        `B. A comprehensive understanding of ${topic}`,
+        "C. Something unrelated",
+        "D. A wrong definition"
       ],
-      answer: `A comprehensive understanding of ${topic}`,
-      difficulty: "easy"
+      answer: `B. A comprehensive understanding of ${topic}`,
+      difficulty: "easy",
+      type: 'multiple_choice' as const
     },
     {
-      question: `In Grade ${grade}, how would you apply ${topic}?`,
-      options: [
-        "In an unrelated way",
-        "Incorrectly",
-        `Through practical application suitable for Grade ${grade} students`,
-        "Without understanding"
-      ],
-      answer: `Through practical application suitable for Grade ${grade} students`,
-      difficulty: "hard"
-    },
-    {
-      question: `What are the key benefits of studying ${topic}?`,
-      options: [
-        "No benefits at all",
-        `Enhanced understanding and practical skills in ${topic}`,
-        "Confusion and difficulty",
-        "Irrelevant knowledge"
-      ],
-      answer: `Enhanced understanding and practical skills in ${topic}`,
-      difficulty: "medium"
-    },
-    {
-      question: `Which study method works best for ${topic}?`,
-      options: [
-        "Ignoring the subject completely",
-        "Memorizing without understanding",
-        `Active learning with practical examples and regular practice`,
-        "Passive reading only"
-      ],
-      answer: `Active learning with practical examples and regular practice`,
-      difficulty: "easy"
+      question: `Explain how you would apply ${topic} in a real-world scenario. Provide a detailed example with step-by-step reasoning.`,
+      options: [],
+      answer: '',
+      difficulty: "hard",
+      type: 'open_ended' as const,
+      rubric: {
+        "4": "Provides a clear, detailed real-world example with step-by-step reasoning and demonstrates deep understanding of the concept.",
+        "3": "Provides a good example with adequate reasoning, showing solid understanding with minor gaps.",
+        "2": "Provides a basic example with some reasoning, showing partial understanding of the concept.",
+        "1": "Attempts to provide an example but shows limited understanding or unclear reasoning.",
+        "0": "No attempt or completely irrelevant response."
+      }
     }
   ];
 
@@ -94,6 +149,8 @@ const generateDemoQuestions = (request: QuizRequest): QuizQuestion[] => {
     options: template.options,
     answer: template.answer,
     difficulty: template.difficulty,
+    type: template.type,
+    rubric: template.rubric,
     grade_level: grade.toString(),
     subject: topic,
     language: language
@@ -114,6 +171,27 @@ export default function Assessment() {
     }
   });
 
+  // Timer effect
+  useEffect(() => {
+    if (quizState && step === 'taking' && quizState.timeRemaining > 0) {
+      const timer = setInterval(() => {
+        setQuizState(prev => {
+          if (!prev || prev.timeRemaining <= 1) {
+            // Auto-submit when time runs out
+            submitQuiz();
+            return prev;
+          }
+          return {
+            ...prev,
+            timeRemaining: prev.timeRemaining - 1
+          };
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [quizState?.timeRemaining, step]);
+
   const createQuiz = async (data: QuizRequest) => {
     try {
       setLoading(true);
@@ -127,92 +205,99 @@ export default function Assessment() {
         return;
       }
 
-      // Use original data since validation passed
-      const response = await ApiService.Assessment.createQuiz(data);
+      // Use ApiService to get the response
+      const rawResponse: any = await ApiService.Assessment.createQuiz(data);
       
-      console.log('📥 Quiz API response:', response);
-      console.log('📊 Response type:', typeof response);
-      console.log('📊 Response keys:', response ? Object.keys(response) : 'No response');
-      console.log('📊 Questions array:', response?.questions);
-      console.log('📊 Questions type:', typeof response?.questions);
-      console.log('📊 Questions length:', response?.questions?.length);
+      console.log('📥 Raw API response:', rawResponse);
+      console.log('📥 Response structure check:', {
+        hasQuestions: !!rawResponse?.questions,
+        questionsType: typeof rawResponse?.questions,
+        isArray: Array.isArray(rawResponse?.questions),
+        questionsLength: rawResponse?.questions?.length,
+        hasData: !!rawResponse?.data,
+        dataQuestions: rawResponse?.data?.questions,
+        fullStructure: Object.keys(rawResponse || {})
+      });
+      
+      // Handle different possible response structures
+      let response: ApiQuizResponse;
+      
+      if (rawResponse?.data?.questions) {
+        // Backend wrapped response in { data: { questions: [...] } }
+        response = {
+          questions: rawResponse.data.questions,
+          assessment_id: rawResponse.data.assessment_id || rawResponse.assessment_id || `quiz_${Date.now()}`
+        };
+      } else if (rawResponse?.questions) {
+        // Direct response structure
+        response = {
+          questions: rawResponse.questions,
+          assessment_id: rawResponse.assessment_id || `quiz_${Date.now()}`
+        };
+      } else {
+        console.log('❌ Unexpected response structure:', rawResponse);
+        throw new Error('Invalid response structure');
+      }
+      
+      console.log('  Processed response:', response);
+      console.log('📊 Assessment ID:', response.assessment_id);
+      console.log('📊 Questions count:', response.questions?.length);
       
       // Enhanced response validation
-      if (!response) {
-        console.log('❌ No response received from server');
-        throw new Error('No response received from server');
+      if (!response || !response.questions) {
+        console.log('❌ No response or questions received from server');
+        throw new Error('No questions received from server');
       }
 
-      if (response.questions && Array.isArray(response.questions) && response.questions.length > 0) {
+      if (Array.isArray(response.questions) && response.questions.length > 0) {
         console.log('✅ Valid questions array found with', response.questions.length, 'questions');
         
-        // Validate each question
-        const validQuestions = response.questions.filter((q, index) => {
-          const isValid = q && 
-            q.question && 
-            q.question.trim().length > 0 &&
-            ((q.options && Array.isArray(q.options) && q.options.length > 0) || !q.options) &&
-            q.answer;
-          
-          if (!isValid) {
-            console.log(`❌ Invalid question at index ${index}:`, q);
-          } else {
-            console.log(`✅ Valid question at index ${index}:`, q.question?.substring(0, 50) + '...');
-          }
-          
-          return isValid;
-        });
-
-        console.log('📊 Valid questions count:', validQuestions.length, 'out of', response.questions.length);
-        console.log('📊 Valid questions count:', validQuestions.length, 'out of', response.questions.length);
-
-        if (validQuestions.length === 0) {
-          console.log('❌ No valid questions found, throwing error');
-          throw new Error('No valid questions received from server');
-        }
-
-        if (validQuestions.length < response.questions.length) {
-          console.warn(`${response.questions.length - validQuestions.length} invalid questions filtered out`);
-          toast(`Some questions were invalid and removed. Quiz has ${validQuestions.length} questions.`, {
-            icon: '⚠️',
-            duration: 4000,
-          });
-        }
-
-        setQuizState({
-          questions: validQuestions,
-          currentQuestion: 0,
-          answers: new Array(validQuestions.length).fill(''),
-          timeRemaining: validQuestions.length * 60, // 1 minute per question
-          startTime: new Date(),
-        });
-        setStep('taking');
-        toast.success(`Quiz created successfully with ${validQuestions.length} questions!`);
-      } else {
-        console.log('❌ Invalid response structure detected:');
-        console.log('📊 response.questions exists:', !!response.questions);
-        console.log('📊 response.questions is array:', Array.isArray(response.questions));
-        console.log('📊 response.questions length:', response.questions?.length);
-        console.log('📊 Full response structure:', JSON.stringify(response, null, 2));
-        console.log('🔄 API failed, using demo mode...');
+        // Log first question to check structure
+        console.log('📝 Sample question structure:', response.questions[0]);
         
-        // Fallback to demo questions when API fails
-        const demoQuestions = generateDemoQuestions(data);
+        // Convert API questions to internal format
+        const convertedQuestions = response.questions.map((apiQuestion, index) => {
+          try {
+            console.log(`🔄 Converting question ${index + 1}:`, apiQuestion);
+            const converted = convertApiQuestionToInternal(apiQuestion, index);
+            console.log(`✅ Converted question ${index + 1}:`, converted);
+            return converted;
+          } catch (error) {
+            console.warn(`❌ Failed to convert question ${index}:`, error, apiQuestion);
+            return null;
+          }
+        }).filter(Boolean) as InternalQuizQuestion[];
+
+        console.log('📊 Final converted questions:', convertedQuestions);
+
+        if (convertedQuestions.length === 0) {
+          console.log('❌ No valid questions after conversion');
+          throw new Error('No valid questions could be processed');
+        }
+
         setQuizState({
-          questions: demoQuestions,
+          questions: convertedQuestions,
           currentQuestion: 0,
-          answers: new Array(demoQuestions.length).fill(''),
-          timeRemaining: demoQuestions.length * 60,
+          answers: new Array(convertedQuestions.length).fill(''),
+          timeRemaining: convertedQuestions.length * 120, // 2 minutes per question
           startTime: new Date(),
+          assessmentId: response.assessment_id,
         });
         setStep('taking');
-        toast.success(`📚 Demo Quiz created! (${demoQuestions.length} questions)`, {
-          icon: '🎭',
-          duration: 4000,
-        });
+        toast.success(`✅ Quiz created with ${convertedQuestions.length} questions!`);
+      } else {
+        console.log('❌ Invalid response structure detected');
+        console.log('Questions data:', response.questions);
+        throw new Error('Invalid response structure');
       }
     } catch (error: any) {
       console.error('Quiz creation error:', error);
+      console.log('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack
+      });
       console.log('🔄 API error, falling back to demo mode...');
       
       // Fallback to demo questions when API fails
@@ -222,7 +307,7 @@ export default function Assessment() {
           questions: demoQuestions,
           currentQuestion: 0,
           answers: new Array(demoQuestions.length).fill(''),
-          timeRemaining: demoQuestions.length * 60,
+          timeRemaining: demoQuestions.length * 120,
           startTime: new Date(),
         });
         setStep('taking');
@@ -291,12 +376,29 @@ export default function Assessment() {
           correctAnswer: 'N/A',
           isCorrect: false,
           explanation: 'Question data was invalid',
+          type: 'multiple_choice',
         };
       }
 
       const userAnswer = quizState.answers[index] || '';
       const correctAnswer = question.answer || '';
-      const isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+      
+      // For MCQ, check exact match; for open-ended, mark as "requires review"
+      let isCorrect = false;
+      let explanation = 'No explanation available';
+      
+      if (question.type === 'multiple_choice') {
+        isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+        explanation = isCorrect ? 
+          'Correct! Well done.' : 
+          `The correct answer was: ${correctAnswer}`;
+      } else {
+        // Open-ended questions require manual grading
+        isCorrect = false; // Will be manually graded
+        explanation = question.rubric ? 
+          'This answer will be reviewed based on the rubric provided.' :
+          'This open-ended answer requires manual review.';
+      }
       
       if (isCorrect) correctAnswers++;
       
@@ -305,7 +407,10 @@ export default function Assessment() {
         userAnswer: userAnswer || 'Not answered',
         correctAnswer: correctAnswer,
         isCorrect,
-        explanation: question.explanation || 'No explanation available',
+        explanation,
+        type: question.type,
+        rubric: question.rubric,
+        requiresReview: question.type === 'open_ended',
       };
     });
 
@@ -317,21 +422,29 @@ export default function Assessment() {
         totalQuestions: quizState?.questions?.length || 0,
         timeTaken: 0,
         detailedResults,
+        assessmentId: quizState?.assessmentId,
       });
       setStep('results');
       return;
     }
 
-    const score = Math.round((correctAnswers / quizState.questions.length) * 100);
+    // Calculate score based on MCQ questions only
+    const mcqQuestions = quizState.questions.filter(q => q.type === 'multiple_choice');
+    const mcqCorrect = detailedResults.filter(r => r.type === 'multiple_choice' && r.isCorrect).length;
+    const score = mcqQuestions.length > 0 ? Math.round((mcqCorrect / mcqQuestions.length) * 100) : 0;
+    
     const endTime = new Date();
     const timeTaken = Math.round((endTime.getTime() - quizState.startTime.getTime()) / 1000 / 60);
 
     setResults({
       score,
-      correctAnswers,
+      correctAnswers: mcqCorrect,
       totalQuestions: quizState.questions.length,
-      timeTaken: Math.max(1, timeTaken), // Ensure at least 1 minute
+      mcqQuestions: mcqQuestions.length,
+      openEndedQuestions: quizState.questions.filter(q => q.type === 'open_ended').length,
+      timeTaken: Math.max(1, timeTaken),
       detailedResults,
+      assessmentId: quizState.assessmentId,
     });
     setStep('results');
   };
@@ -354,7 +467,7 @@ export default function Assessment() {
             <ClipboardDocumentListIcon className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Assessment</h2>
-          <p className="text-gray-600">Generate an AI-powered quiz tailored to your needs</p>
+          <p className="text-gray-600">Generate an AI-powered quiz with multiple choice and open-ended questions</p>
         </div>
 
         <form onSubmit={handleSubmit(createQuiz)} className="space-y-6">
@@ -440,6 +553,7 @@ export default function Assessment() {
     if (!currentQ) return null;
 
     const progress = ((quizState.currentQuestion + 1) / quizState.questions.length) * 100;
+    const isOpenEnded = currentQ.type === 'open_ended';
 
     return (
       <motion.div
@@ -453,9 +567,25 @@ export default function Assessment() {
             <span className="text-sm font-medium text-gray-600">
               Question {quizState.currentQuestion + 1} of {quizState.questions.length}
             </span>
-            <div className="flex items-center text-sm text-gray-600">
-              <ClockIcon className="w-4 h-4 mr-1" />
-              {Math.floor(quizState.timeRemaining / 60)}:{(quizState.timeRemaining % 60).toString().padStart(2, '0')}
+            <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <span className={cn(
+                "px-2 py-1 rounded-full text-xs font-medium",
+                isOpenEnded ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+              )}>
+                {isOpenEnded ? "Open-ended" : "Multiple Choice"}
+              </span>
+              <span className={cn(
+                "px-2 py-1 rounded-full text-xs font-medium",
+                currentQ.difficulty === 'easy' ? "bg-green-100 text-green-700" :
+                currentQ.difficulty === 'hard' ? "bg-red-100 text-red-700" :
+                "bg-yellow-100 text-yellow-700"
+              )}>
+                {currentQ.difficulty}
+              </span>
+              <div className="flex items-center">
+                <ClockIcon className="w-4 h-4 mr-1" />
+                {Math.floor(quizState.timeRemaining / 60)}:{(quizState.timeRemaining % 60).toString().padStart(2, '0')}
+              </div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -468,12 +598,19 @@ export default function Assessment() {
 
         {/* Question */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">
-            {currentQ.question}
-          </h3>
+          <div className="flex items-start space-x-3 mb-6">
+            {isOpenEnded ? (
+              <DocumentTextIcon className="w-6 h-6 text-purple-500 mt-1 flex-shrink-0" />
+            ) : (
+              <QuestionMarkCircleIcon className="w-6 h-6 text-blue-500 mt-1 flex-shrink-0" />
+            )}
+            <h3 className="text-xl font-semibold text-gray-900">
+              {currentQ.question}
+            </h3>
+          </div>
 
           {/* Multiple Choice Options */}
-          {currentQ.options && currentQ.options.length > 0 ? (
+          {!isOpenEnded && currentQ.options && currentQ.options.length > 0 ? (
             <div className="space-y-3 mb-8">
               {currentQ.options.map((option, index) => (
                 <button
@@ -513,9 +650,9 @@ export default function Assessment() {
                   <textarea
                     value={quizState.answers[quizState.currentQuestion] || ''}
                     onChange={(e) => handleAnswer(e.target.value)}
-                    placeholder="Type your answer here. Be detailed and explain your reasoning..."
-                    className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                    maxLength={1000}
+                    placeholder="Type your answer here. Show your work step by step for better scoring..."
+                    className="w-full h-48 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    maxLength={1500}
                   />
                   {!(quizState.answers[quizState.currentQuestion] || '').trim() && (
                     <div className="absolute top-2 right-2 bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">
@@ -524,12 +661,27 @@ export default function Assessment() {
                   )}
                 </div>
               </div>
+              
+              {/* Rubric information for open-ended questions */}
+              {currentQ.rubric && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">📝 Scoring Guide:</h4>
+                  <div className="text-xs text-blue-800 space-y-1">
+                    {Object.entries(currentQ.rubric).map(([score, description]) => (
+                      <p key={score}>
+                        <strong>{score} points:</strong> {description}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-between items-center text-sm">
                 <div className="text-gray-500">
-                  💡 Tip: Provide a detailed explanation for better scoring
+                  💡 Tip: For math problems, show your work step by step
                 </div>
                 <div className="text-gray-500">
-                  {(quizState.answers[quizState.currentQuestion] || '').length}/1000 characters
+                  {(quizState.answers[quizState.currentQuestion] || '').length}/1500 characters
                 </div>
               </div>
             </div>
@@ -546,12 +698,10 @@ export default function Assessment() {
             </button>
 
             <div className="flex items-center space-x-4">
-              {/* Progress indicator */}
               <span className="text-sm text-gray-500">
                 Question {quizState.currentQuestion + 1} of {quizState.questions.length}
               </span>
               
-              {/* Next/Submit button */}
               {quizState.currentQuestion === quizState.questions.length - 1 ? (
                 <div className="flex flex-col items-end space-y-2">
                   <div className="text-sm text-green-600 font-medium">
@@ -608,24 +758,44 @@ export default function Assessment() {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Quiz Complete!</h2>
             <p className="text-gray-600">
-              You scored {results.correctAnswers} out of {results.totalQuestions} questions correctly
+              {results.mcqQuestions > 0 && (
+                <>You scored {results.correctAnswers} out of {results.mcqQuestions} multiple choice questions correctly</>
+              )}
+              {results.openEndedQuestions > 0 && (
+                <>{results.mcqQuestions > 0 ? ', and answered ' : 'You answered '}{results.openEndedQuestions} open-ended question{results.openEndedQuestions > 1 ? 's' : ''} (requires manual review)</>
+              )}
             </p>
+            {results.assessmentId && (
+              <p className="text-sm text-gray-500 mt-2">Assessment ID: {results.assessmentId}</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600 mb-1">{results.score}%</div>
-              <div className="text-sm text-gray-600">Overall Score</div>
+              <div className="text-sm text-gray-600">MCQ Score</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 mb-1">{results.correctAnswers}/{results.totalQuestions}</div>
-              <div className="text-sm text-gray-600">Correct Answers</div>
+              <div className="text-2xl font-bold text-green-600 mb-1">{results.correctAnswers}/{results.mcqQuestions || 0}</div>
+              <div className="text-sm text-gray-600">MCQ Correct</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600 mb-1">{results.timeTaken}min</div>
+              <div className="text-2xl font-bold text-purple-600 mb-1">{results.openEndedQuestions || 0}</div>
+              <div className="text-sm text-gray-600">Open-ended</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-indigo-600 mb-1">{results.timeTaken}min</div>
               <div className="text-sm text-gray-600">Time Taken</div>
             </div>
           </div>
+
+          {results.openEndedQuestions > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-yellow-800 text-sm">
+                📝 <strong>Note:</strong> Open-ended questions require manual review and are not included in the automatic score calculation.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-center">
             <button
@@ -644,15 +814,30 @@ export default function Assessment() {
             {results.detailedResults && results.detailedResults.map((result: any, index: number) => (
               <div key={index} className="border border-gray-200 rounded-lg p-6">
                 <div className="flex items-start space-x-3 mb-4">
-                  {result.isCorrect ? (
+                  {result.type === 'open_ended' ? (
+                    <DocumentTextIcon className="w-6 h-6 text-purple-500 mt-0.5" />
+                  ) : result.isCorrect ? (
                     <CheckCircleIcon className="w-6 h-6 text-green-500 mt-0.5" />
                   ) : (
                     <XCircleIcon className="w-6 h-6 text-red-500 mt-0.5" />
                   )}
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      Question {index + 1}
-                    </h4>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <h4 className="font-medium text-gray-900">
+                        Question {index + 1}
+                      </h4>
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        result.type === 'open_ended' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                      )}>
+                        {result.type === 'open_ended' ? 'Open-ended' : 'Multiple Choice'}
+                      </span>
+                      {result.requiresReview && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          Requires Review
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-700 mb-3">{result.question}</p>
                   </div>
                 </div>
@@ -662,20 +847,41 @@ export default function Assessment() {
                     <span className="text-sm font-medium text-gray-600 w-24">Your answer:</span>
                     <span className={cn(
                       "text-sm",
+                      result.type === 'open_ended' ? "text-gray-700" :
                       result.isCorrect ? "text-green-600" : "text-red-600"
                     )}>
                       {result.userAnswer}
                     </span>
                   </div>
-                  {!result.isCorrect && (
+                  {result.type === 'multiple_choice' && !result.isCorrect && (
                     <div className="flex">
                       <span className="text-sm font-medium text-gray-600 w-24">Correct:</span>
                       <span className="text-sm text-green-600">{result.correctAnswer}</span>
                     </div>
                   )}
                   {result.explanation && (
-                    <div className="bg-blue-50 p-3 rounded-lg mt-3">
-                      <p className="text-sm text-blue-800">{result.explanation}</p>
+                    <div className={cn(
+                      "p-3 rounded-lg mt-3",
+                      result.type === 'open_ended' ? "bg-purple-50" : "bg-blue-50"
+                    )}>
+                      <p className={cn(
+                        "text-sm",
+                        result.type === 'open_ended' ? "text-purple-800" : "text-blue-800"
+                      )}>
+                        {result.explanation}
+                      </p>
+                    </div>
+                  )}
+                  {result.rubric && (
+                    <div className="bg-gray-50 p-3 rounded-lg mt-3">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Scoring Rubric:</h5>
+                      <div className="text-xs text-gray-600 space-y-1">
+                        {Object.entries(result.rubric).map(([score, description]) => (
+                          <p key={score}>
+                            <strong>{score} points:</strong> {String(description)}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -698,9 +904,9 @@ export default function Assessment() {
           >
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Assessment Center</h1>
             <p className="text-gray-600">
-              {step === 'setup' && 'Create AI-powered quizzes tailored to your learning level'}
-              {step === 'taking' && 'Take your time and think carefully about each question'}
-              {step === 'results' && 'Review your performance and learn from the results'}
+              {step === 'setup' && 'Create AI-powered quizzes with multiple choice and open-ended questions'}
+              {step === 'taking' && 'Take your time and provide thoughtful answers for each question'}
+              {step === 'results' && 'Review your performance and learn from detailed feedback'}
             </p>
           </motion.div>
         </div>
