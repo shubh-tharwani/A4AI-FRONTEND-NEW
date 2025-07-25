@@ -297,6 +297,7 @@ export default function EnhancedVoiceAssistant() {
         const audioFile = new File([audioBlob], `voice_recording_${Date.now()}.webm`, {
           type: 'audio/webm'
         });
+        console.log("Audi recorded")
         await processVoiceInput(audioFile);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -324,7 +325,8 @@ export default function EnhancedVoiceAssistant() {
       setState(prev => ({ ...prev, recordingState: 'processing' }));
       
       // Send audio directly to the enhanced assistant
-      await sendMessage('', 'voice', [audioFile]);
+      await sendMessage('[Voice message]', 'voice', [audioFile]);
+      console.log(audioFile)
       
     } catch (error) {
       console.error('Error processing voice input:', error);

@@ -350,9 +350,15 @@ export class VoiceService {
     formData.append('context', JSON.stringify(contextData));
     
     // Add audio file if provided
-    if (request.audio_file) {
-      formData.append('audio_file', request.audio_file);
+    if (request.files && request.files.length > 0) {
+      console.log("Checking if audio file is present!")
+      for (const file of request.files) {
+        if (file.type.includes("audio")){
+          console.log("Added audio file")
+          formData.append('audio_file', file);
     }
+  }
+}
     
     // Handle audio file if provided
     if (request.audio_file) {
