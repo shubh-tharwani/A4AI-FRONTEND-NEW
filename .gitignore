@@ -130,7 +130,6 @@ auth-tokens.json
 *.pkl
 *.h5
 *.weights
-data/
 datasets/
 
 # Database
