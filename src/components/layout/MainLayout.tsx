@@ -11,24 +11,44 @@ interface MainLayoutProps {
     avatar?: string;
     role: string;
   };
+  nestedNavigation?: boolean;
+  onSidebarStateChange?: (isCollapsed: boolean) => void;
 }
 
-export default function MainLayout({ children, user }: MainLayoutProps) {
+export default function MainLayout({ 
+  children, 
+  user,
+  nestedNavigation = false,
+  onSidebarStateChange 
+}: MainLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+    const newState = !isSidebarOpen;
+    setIsSidebarOpen(newState);
+    if (onSidebarStateChange) {
+      onSidebarStateChange(newState);
+    }
   };
 
   const closeSidebar = () => {
     setIsSidebarOpen(false);
+    if (onSidebarStateChange) {
+      onSidebarStateChange(false);
+    }
   };
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
-      <div className="hidden lg:block lg:w-80 flex-shrink-0">
-        <Sidebar isOpen={true} onClose={closeSidebar} userRole={user?.role} />
+      <div className={`${
+        nestedNavigation && isSidebarOpen ? 'lg:w-20' : 'lg:w-80'
+      } hidden lg:block flex-shrink-0 transition-all duration-300`}>
+        <Sidebar 
+          isOpen={!nestedNavigation || !isSidebarOpen} 
+          onClose={closeSidebar} 
+          userRole={user?.role} 
+        />
       </div>
 
       {/* Mobile Sidebar */}

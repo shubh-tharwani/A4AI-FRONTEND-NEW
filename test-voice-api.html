@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice API Test</title>
+</head>
+<body>
+    <h1>Voice API Connectivity Test</h1>
+    <div id="status">Testing...</div>
+    <div id="results"></div>
+
+    <script>
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+
+        async function testAPI() {
+            try {
+                // Test 1: Health Check
+                status.innerHTML = 'Testing health endpoint...';
+                const healthResponse = await fetch('http://localhost:8000/api/v1/voice/health', {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json',
+                    }
+                });
+                
+                const healthData = await healthResponse.json();
+                results.innerHTML += `<h3>Health Check:</h3><pre>${JSON.stringify(healthData, null, 2)}</pre>`;
+
+                // Test 2: Check Local Storage for Auth Token
+                const token = localStorage.getItem('auth_token');
+                results.innerHTML += `<h3>Auth Token:</h3><p>${token ? 'Token found: ' + token.substring(0, 20) + '...' : 'No token found'}</p>`;
+
+                // Test 3: Try authenticated request
+                if (token) {
+                    status.innerHTML = 'Testing authenticated request...';
+                    const assistantResponse = await fetch('http://localhost:8000/api/v1/voice/assistant', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            user_id: 'test',
+                            message: 'hello'
+                        })
+                    });
+                    
+                    const assistantData = await assistantResponse.text();
+                    results.innerHTML += `<h3>Assistant Test (Status: ${assistantResponse.status}):</h3><pre>${assistantData}</pre>`;
+                } else {
+                    results.innerHTML += `<h3>Assistant Test:</h3><p>Skipped - no auth token</p>`;
+                }
+
+                status.innerHTML = 'Tests completed!';
+            } catch (error) {
+                status.innerHTML = 'Error occurred!';
+                results.innerHTML += `<h3>Error:</h3><pre>${error.toString()}</pre>`;
+                console.error('Test error:', error);
+            }
+        }
+
+        // Run tests when page loads
+        testAPI();
+    </script>
+</body>
+</html>

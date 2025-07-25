@@ -18,6 +18,7 @@ import VoiceAssistant from './pages/voice-assistant/EnhancedVoiceAssistant';
 import VoiceLite from './pages/voice-lite/VoiceLite';
 import VisualAids from './pages/visual-aids/VisualAids';
 import ARScene from './pages/ar-scene/ARScene';
+import AgenticDashboard from './pages/agentic/AgenticDashboard';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -130,6 +131,12 @@ function App() {
               <Route path="/ar-scene" element={
                 <ProtectedRoute>
                   <ARScene />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/agentic" element={
+                <ProtectedRoute>
+                  <AgenticDashboard />
                 </ProtectedRoute>
               } />
               
