@@ -82,6 +82,8 @@ export class EducationService {
   }
 
   static async createVisualAid(request: any): Promise<EducationResponse> {
+    // Note: This is the education-specific visual aid endpoint
+    // For general visual aids, use VisualAidsService.generateVisualAid() instead
     return apiClient.post<EducationResponse>('/api/v1/education/visual-aids', request);
   }
 
@@ -159,7 +161,159 @@ export class ActivitiesService {
 // Visual Aids Service
 export class VisualAidsService {
   static async generateVisualAid(request: VisualAidRequest): Promise<VisualAidResponse> {
-    return apiClient.post<VisualAidResponse>('/api/v1/visual-aids/generate', request);
+    // Enhanced logging for debugging
+    console.log('🎨 Visual Aid Request (Original):', request);
+    console.log('🔗 API URL:', '/api/v1/visual-aids/generate');
+    
+    // Normalize request according to backend OpenAPI schema
+    // Backend expects: topic, grade, subject (all required), visualType?, style?, color_scheme? (optional)
+    
+    // Add variety based on topic to encourage unique results
+    const topicLower = (request.topic || '').toLowerCase();
+    
+    // Determine style based on topic content to add variety
+    let dynamicStyle = request.style || 'modern';
+    let dynamicColorScheme = request.color_scheme || 'blue';
+    
+    if (topicLower.includes('space') || topicLower.includes('solar') || topicLower.includes('planet')) {
+      dynamicStyle = 'cosmic';
+      dynamicColorScheme = 'purple';
+    } else if (topicLower.includes('nature') || topicLower.includes('plant') || topicLower.includes('animal')) {
+      dynamicStyle = 'natural';
+      dynamicColorScheme = 'green';
+    } else if (topicLower.includes('ocean') || topicLower.includes('water') || topicLower.includes('marine')) {
+      dynamicStyle = 'aquatic';
+      dynamicColorScheme = 'blue';
+    } else if (topicLower.includes('history') || topicLower.includes('ancient') || topicLower.includes('civilization')) {
+      dynamicStyle = 'vintage';
+      dynamicColorScheme = 'brown';
+    } else if (topicLower.includes('math') || topicLower.includes('geometry') || topicLower.includes('algebra')) {
+      dynamicStyle = 'geometric';
+      dynamicColorScheme = 'orange';
+    } else if (topicLower.includes('art') || topicLower.includes('paint') || topicLower.includes('creative')) {
+      dynamicStyle = 'artistic';
+      dynamicColorScheme = 'rainbow';
+    } else {
+      // Add some randomization for generic topics
+      const styles = ['modern', 'minimalist', 'colorful', 'professional', 'playful'];
+      const colors = ['blue', 'green', 'red', 'purple', 'orange', 'teal'];
+      const topicHash = request.topic?.length || 0;
+      dynamicStyle = styles[topicHash % styles.length];
+      dynamicColorScheme = colors[topicHash % colors.length];
+    }
+    
+    const backendRequest = {
+      topic: request.topic?.trim() || '',
+      grade: request.grade?.toString() || '5',
+      subject: request.subject?.trim() || 'Science',
+      visualType: request.visualType || 'infographic',
+      style: dynamicStyle,
+      color_scheme: dynamicColorScheme
+    };
+
+    // Ensure required fields are present
+    if (!backendRequest.topic) {
+      throw new Error('Topic is required');
+    }
+    if (!backendRequest.grade) {
+      throw new Error('Grade is required');
+    }
+    if (!backendRequest.subject) {
+      throw new Error('Subject is required');
+    }
+
+    console.log('🔧 Backend-Compliant Request:', backendRequest);
+    console.log('🎯 KEY REQUEST DETAILS FOR UNIQUENESS:');
+    console.log(`  🏷️  Topic: "${backendRequest.topic}" (${backendRequest.topic.length} chars)`);
+    console.log(`  🎓 Grade: "${backendRequest.grade}"`);
+    console.log(`  📚 Subject: "${backendRequest.subject}"`);
+    console.log(`  🎨 Visual Type: "${backendRequest.visualType}"`);
+    console.log(`  ✨ Style: "${backendRequest.style}"`);
+    console.log(`  🌈 Color Scheme: "${backendRequest.color_scheme}"`);
+    console.log('📋 Expected Backend Schema:');
+    console.log('  - topic: string (required) - THIS SHOULD DRIVE UNIQUENESS');
+    console.log('  - grade: string (required)');
+    console.log('  - subject: string (required)');
+    console.log('  - visualType: string (optional, default: "infographic")');
+    console.log('  - style: string (optional, default: "modern")');
+    console.log('  - color_scheme: string (optional, default: "blue")');
+    
+    try {
+      const response = await apiClient.post<VisualAidResponse>('/api/v1/visual-aids/generate', backendRequest);
+      console.log('✅ Visual Aid Response:', response);
+      
+      // CRITICAL: Check if backend is generating unique results based on topic
+      const responseData = (response as any).data || response;
+      console.log('🔍 UNIQUENESS ANALYSIS:');
+      console.log(`  📝 Request Topic: "${backendRequest.topic}"`);
+      console.log(`  🆔 Response ID: "${responseData?.id || 'NO_ID'}"`);
+      console.log(`  🖼️  Image URL: "${responseData?.image_url || 'NO_URL'}"`);
+      console.log(`  📁 Filename: "${responseData?.filename || 'NO_FILENAME'}"`);
+      console.log(`  📊 Image Size: ${responseData?.metadata?.image_size || 'NO_SIZE'} bytes`);
+      console.log(`  ⏰ Created At: "${responseData?.metadata?.created_at || 'NO_TIMESTAMP'}"`);
+      
+      // Track filename patterns to see if they're topic-specific
+      const filename = responseData?.filename || '';
+      const topicInFilename = filename.includes(backendRequest.topic.replace(/\s+/g, '_'));
+      console.log(`  🎯 Topic "${backendRequest.topic}" found in filename "${filename}": ${topicInFilename}`);
+      
+      // Check if the image URL contains topic-specific information
+      const imageUrl = responseData?.image_url || '';
+      const topicInUrl = imageUrl.includes(backendRequest.topic.replace(/\s+/g, '_'));
+      console.log(`  🎯 Topic "${backendRequest.topic}" found in image URL "${imageUrl}": ${topicInUrl}`);
+      
+      // Detailed analysis of the response structure
+      console.log('🔍 Response Structure Analysis:');
+      console.log('  - Full response keys:', Object.keys(response || {}));
+      console.log('  - Response data keys:', Object.keys(responseData || {}));
+      console.log('  - Metadata keys:', Object.keys(responseData?.metadata || {}));
+      
+      // Check if image URL is accessible
+      if (responseData?.image_url) {
+        console.log('🖼️ Image URL provided:', responseData.image_url);
+        
+        // Try to fetch image info (non-blocking)
+        fetch(responseData.image_url, { method: 'HEAD' })
+          .then(res => {
+            console.log('📏 Image HEAD request result:');
+            console.log('  - Status:', res.status);
+            console.log('  - Content-Length:', res.headers.get('content-length'));
+            console.log('  - Content-Type:', res.headers.get('content-type'));
+            console.log('  - Last-Modified:', res.headers.get('last-modified'));
+          })
+          .catch(err => {
+            console.warn('⚠️ Could not fetch image info:', err.message);
+          });
+      } else {
+        console.warn('⚠️ No image_url provided in response');
+      }
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ Visual Aid API Error:', error);
+      console.error('❌ Error Response:', error.response?.data);
+      console.error('❌ Error Status:', error.response?.status);
+      console.error('❌ Request that failed:', backendRequest);
+      
+      // Enhanced error logging for 422 validation errors
+      if (error.response?.status === 422) {
+        console.error('🚨 VALIDATION ERROR DETAILS:');
+        console.error('  - Backend expected schema (from OpenAPI):');
+        console.error('    ✓ topic: string (required)');
+        console.error('    ✓ grade: string (required)');  
+        console.error('    ✓ subject: string (required)');
+        console.error('    ✓ visualType: string (optional, default: "infographic")');
+        console.error('    ✓ style: string (optional, default: "modern")');
+        console.error('    ✓ color_scheme: string (optional, default: "blue")');
+        console.error('  - Our request:', JSON.stringify(backendRequest, null, 2));
+        
+        if (error.response?.data?.detail) {
+          console.error('  - Backend validation details:', error.response.data.detail);
+        }
+      }
+      
+      throw error;
+    }
   }
 
   static async createInfographic(request: {
@@ -167,7 +321,19 @@ export class VisualAidsService {
     data_points: string[];
     grade_level?: number;
   }): Promise<any> {
-    return apiClient.post('/api/v1/visual-aids/infographic', request);
+    console.log('📊 Infographic Request:', request);
+    console.log('🔗 API URL:', '/api/v1/visual-aids/infographic');
+    
+    try {
+      const response = await apiClient.post('/api/v1/visual-aids/infographic', request);
+      console.log('✅ Infographic Response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('❌ Infographic API Error:', error);
+      console.error('❌ Error Response:', error.response?.data);
+      console.error('❌ Error Status:', error.response?.status);
+      throw error;
+    }
   }
 
   static async getUserVisualAids(userId: string, limit?: number, assetType?: string): Promise<any[]> {
@@ -183,7 +349,16 @@ export class VisualAidsService {
     if (limit) params.append('limit', limit.toString());
     if (assetType) params.append('asset_type', assetType);
     
-    return apiClient.get<any[]>(`/api/v1/visual-aids/my-visual-aids?${params.toString()}`);
+    console.log('📂 Getting My Visual Aids with params:', { limit, assetType });
+    
+    try {
+      const response = await apiClient.get<any[]>(`/api/v1/visual-aids/my-visual-aids?${params.toString()}`);
+      console.log('✅ My Visual Aids Response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('❌ Get My Visual Aids Error:', error);
+      throw error;
+    }
   }
 
   static async searchVisualAids(topic: string, assetType?: string, gradeLevel?: number, limit?: number): Promise<any[]> {

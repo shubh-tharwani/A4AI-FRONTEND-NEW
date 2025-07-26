@@ -3,13 +3,15 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import {
   PhotoIcon,
-  VideoCameraIcon,
   EyeIcon,
   ArrowDownTrayIcon,
   HeartIcon,
   ShareIcon,
   MagnifyingGlassIcon,
   SparklesIcon,
+  PaintBrushIcon,
+  Squares2X2Icon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import Navigation from '../../components/layout/Navigation';
@@ -26,7 +28,7 @@ interface VisualAidsState {
   currentAid: VisualAidResponse | null;
   savedAids: VisualAidResponse[];
   likedAids: Set<string>;
-  selectedAssetType: 'image' | 'video';
+  selectedVisualType: 'infographic' | 'illustration' | 'diagram' | 'chart';
 }
 
 export default function VisualAids() {
@@ -36,15 +38,17 @@ export default function VisualAids() {
     currentAid: null,
     savedAids: [],
     likedAids: new Set(),
-    selectedAssetType: 'image',
+    selectedVisualType: 'infographic',
   });
 
   const { register, handleSubmit, formState: { errors } } = useForm<VisualAidRequest>({
     defaultValues: {
-      prompt: '',
-      asset_type: 'image',
-      grade_level: 9,
-      subject: '',
+      topic: '',
+      grade: '5',
+      subject: 'Science',
+      visualType: 'infographic',
+      style: 'modern',
+      color_scheme: 'blue'
     }
   });
 
@@ -62,62 +66,96 @@ export default function VisualAids() {
       }
 
       // Additional business logic validation
-      if (!data.prompt || data.prompt.trim().length < 5) {
-        toast.error('Please provide a detailed description (at least 5 characters).');
+      if (!data.topic || data.topic.trim().length < 1) {
+        toast.error('Please provide a topic (at least 1 character).');
         return;
       }
 
-      if (data.prompt.trim().length > 500) {
-        toast.error('Description is too long. Please keep it under 500 characters.');
+      if (data.topic.trim().length > 200) {
+        toast.error('Topic is too long. Please keep it under 200 characters.');
         return;
       }
 
-      if (data.grade_level && (data.grade_level < 1 || data.grade_level > 12)) {
-        toast.error('Please select a valid grade level between 1 and 12.');
+      if (!data.grade) {
+        toast.error('Please select a grade level.');
         return;
       }
 
-      const requestData = {
-        ...data,
-        prompt: data.prompt.trim(),
-        asset_type: visualAidsState.selectedAssetType,
-        grade_level: data.grade_level || 5,
-        subject: data.subject?.trim() || 'General Education'
+      const requestData: VisualAidRequest = {
+        topic: data.topic?.trim() || '',
+        grade: data.grade?.toString() || '5',
+        subject: data.subject?.trim() || 'Science',
+        visualType: visualAidsState.selectedVisualType,
+        style: 'modern',
+        color_scheme: 'blue'
       };
+      
+      // Final validation before sending
+      if (!requestData.topic || requestData.topic.length < 1 || requestData.topic.length > 200) {
+        toast.error('Topic must be between 1-200 characters');
+        return;
+      }
+      
+      if (!requestData.grade) {
+        toast.error('Grade level is required');
+        return;
+      }
+      
+      if (!requestData.subject || requestData.subject.length === 0) {
+        toast.error('Subject is required');
+        return;
+      }
+      
+      console.log('📤 Sending Visual Aid Request:', requestData);
       
       const response = await ApiService.VisualAids.generateVisualAid(requestData);
       
       console.log('📥 Visual Aid API response:', response);
       
-      // Enhanced response validation
+      // Enhanced response validation with detailed logging
       if (!response) {
         throw new Error('No response received from server');
       }
       
-      if (response && response.visual_aid_id) {
-        // Validate essential response components
-        if (!response.image_url && !response.filename) {
-          throw new Error('Visual aid missing essential content');
-        }
-
-        // Validate image URL if present
-        if (response.image_url && !response.image_url.startsWith('http') && !response.image_url.startsWith('data:')) {
-          console.warn('Invalid image URL format, but proceeding with generation');
-        }
-
-        const validatedAid = {
-          ...response,
-          prompt: requestData.prompt,
-          filename: response.filename || `visual-aid-${Date.now()}.png`,
-          topic: response.topic || requestData.subject || 'Educational Content',
+      // Log the complete response structure for debugging
+      console.log('🔍 Complete Response Structure:', JSON.stringify(response, null, 2));
+      console.log('🔍 Response Keys:', Object.keys(response));
+      console.log('🔍 Response Type:', typeof response);
+      
+      // Use flexible response checking with type assertion
+      const flexibleResponse = response as any;
+      
+      // Check for the actual backend response structure: { success, message, data: { id, image_url, ... } }
+      if (flexibleResponse.success && flexibleResponse.data && flexibleResponse.data.id) {
+        console.log('✅ Backend response structure detected (success + data.id)');
+        
+        const backendData = flexibleResponse.data;
+        
+        // Normalize the response to match our expected format
+        const normalizedResponse = {
+          visual_aid_id: backendData.id,
+          status: flexibleResponse.success ? 'success' : 'error',
+          prompt: requestData.topic,
+          asset_type: requestData.visualType || 'infographic',
+          image_url: backendData.image_url || '',
+          filename: backendData.filename || `visual-aid-${Date.now()}.png`,
+          topic: backendData.metadata?.topic || requestData.subject || 'Educational Content',
           metadata: {
-            ...response.metadata,
-            generated_at: response.metadata?.generated_at || new Date().toISOString(),
-            prompt_length: requestData.prompt.length,
-            generation_model: response.metadata?.generation_model || 'AI Model',
-            image_size: response.metadata?.image_size || 0
+            generation_model: backendData.metadata?.generation_model || 'AI Model',
+            prompt_length: requestData.topic.length,
+            image_size: backendData.metadata?.image_size || 0,
+            generated_at: backendData.metadata?.created_at || new Date().toISOString(),
+            dimensions: backendData.metadata?.dimensions || '800x600',
+            visual_type: backendData.metadata?.visual_type || requestData.visualType
           }
         };
+        
+        console.log('🔧 Normalized Response:', normalizedResponse);
+        
+        const validatedAid = normalizedResponse;
+
+        console.log('✅ Final validated aid:', validatedAid);
+        console.log('🖼️ Final image_size:', validatedAid.metadata.image_size);
 
         setVisualAidsState(prev => ({
           ...prev,
@@ -125,14 +163,33 @@ export default function VisualAids() {
           savedAids: [...prev.savedAids, validatedAid],
         }));
         setViewMode('gallery');
-        toast.success(`${visualAidsState.selectedAssetType} generated successfully!`);
+        toast.success(`${visualAidsState.selectedVisualType} generated successfully! 🎨`);
+        
+        // Highlight that this is a NEW result
+        console.log('🎉 NEW VISUAL AID GENERATED SUCCESSFULLY!');
+        console.log('📍 This is a fresh, unique result based on your topic.');
+        console.log('🖼️ Check the gallery to see your new visual aid!');
       } else {
-        console.error('Invalid visual aid structure:', response);
-        toast.error('Invalid visual aid data received from server. Please try again.');
+        // Handle different error scenarios
+        console.error('🚨 Unexpected backend response structure');
+        console.error('📋 Expected: { success: true, data: { id, image_url, ... } }');
+        console.error('📋 Actual response:', response);
+        console.error('📋 Available keys:', Object.keys(response || {}));
+        
+        // Check for backend error messages
+        if (flexibleResponse.success === false) {
+          const errorMsg = flexibleResponse.message || flexibleResponse.error || 'Visual aid generation failed';
+          console.error('🚨 Backend reported failure:', errorMsg);
+          toast.error(`Backend error: ${errorMsg}`);
+        } else if (flexibleResponse.message && !flexibleResponse.success) {
+          toast.error(`Backend message: ${flexibleResponse.message}`);
+        } else {
+          toast.error('Unexpected response structure from server. Please check console for details.');
+        }
       }
     } catch (error: any) {
       console.error('Visual aid generation error:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || `Failed to generate ${visualAidsState.selectedAssetType}`;
+      const errorMessage = error?.response?.data?.message || error?.message || `Failed to generate ${visualAidsState.selectedVisualType}`;
       toast.error(`${errorMessage}. Please try again.`);
     } finally {
       setLoading(false);
@@ -176,41 +233,51 @@ export default function VisualAids() {
     }
   };
 
+  const clearGallery = () => {
+    setVisualAidsState(prev => ({
+      ...prev,
+      savedAids: [],
+      currentAid: null,
+      likedAids: new Set()
+    }));
+    toast.success('Gallery cleared!');
+  };
+
+  const generateNewAid = () => {
+    setViewMode('create');
+    // Don't clear current aid, just switch to create mode
+  };
+
   const renderAssetTypeSelector = () => (
     <div className="flex space-x-4 mb-8">
       {[
-        { type: 'image' as const, label: 'Images', icon: PhotoIcon, description: 'Generate educational images and diagrams' },
-        { type: 'video' as const, label: 'Videos', icon: VideoCameraIcon, description: 'Create educational video content (Coming Soon)' },
+        { type: 'infographic' as const, label: 'Infographics', icon: PhotoIcon, description: 'Visual information displays and educational posters' },
+        { type: 'illustration' as const, label: 'Illustrations', icon: PaintBrushIcon, description: 'Educational drawings and artwork' },
+        { type: 'diagram' as const, label: 'Diagrams', icon: Squares2X2Icon, description: 'Process flows and structural diagrams' },
+        { type: 'chart' as const, label: 'Charts', icon: ChartBarIcon, description: 'Data visualization and graphs' },
       ].map((option) => (
         <motion.button
           key={option.type}
-          onClick={() => setVisualAidsState(prev => ({ ...prev, selectedAssetType: option.type }))}
+          onClick={() => setVisualAidsState(prev => ({ ...prev, selectedVisualType: option.type }))}
           className={cn(
             "flex-1 p-6 rounded-xl border-2 transition-all duration-200 text-left",
-            visualAidsState.selectedAssetType === option.type
+            visualAidsState.selectedVisualType === option.type
               ? "border-blue-500 bg-blue-50"
-              : "border-gray-200 bg-white hover:border-gray-300",
-            option.type === 'video' && "opacity-50 cursor-not-allowed"
+              : "border-gray-200 bg-white hover:border-gray-300"
           )}
-          disabled={option.type === 'video'}
-          whileHover={option.type !== 'video' ? { scale: 1.02 } : {}}
-          whileTap={option.type !== 'video' ? { scale: 0.98 } : {}}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
           <div className="flex items-center mb-3">
             <div className={cn(
               "w-10 h-10 rounded-lg flex items-center justify-center mr-3",
-              visualAidsState.selectedAssetType === option.type
+              visualAidsState.selectedVisualType === option.type
                 ? "bg-blue-500 text-white"
                 : "bg-gray-100 text-gray-600"
             )}>
               <option.icon className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900">{option.label}</h3>
-            {option.type === 'video' && (
-              <span className="ml-auto bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded-full">
-                Soon
-              </span>
-            )}
           </div>
           <p className="text-sm text-gray-600">{option.description}</p>
         </motion.button>
@@ -230,7 +297,12 @@ export default function VisualAids() {
             <PhotoIcon className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Generate Visual Aid</h2>
-          <p className="text-gray-600">Create educational images to enhance your learning experience</p>
+          <p className="text-gray-600">Create unique, AI-generated educational images based on your specific topic</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+            <p className="text-sm text-blue-800">
+              💡 Each visual aid is generated uniquely based on your topic, grade level, and subject. Different topics will produce completely different images!
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit(generateVisualAid)} className="space-y-6">
@@ -239,16 +311,17 @@ export default function VisualAids() {
               What would you like to visualize?
             </label>
             <textarea
-              {...register('prompt', { 
-                required: 'Description is required',
-                minLength: { value: 10, message: 'Description must be at least 10 characters' }
+              {...register('topic', { 
+                required: 'Topic is required',
+                minLength: { value: 1, message: 'Topic must be at least 1 character' },
+                maxLength: { value: 200, message: 'Topic must be less than 200 characters' }
               })}
               rows={4}
               placeholder="e.g., A detailed diagram of the human heart showing all four chambers, major blood vessels, and the flow of oxygenated and deoxygenated blood"
               className="input-field resize-none"
             />
-            {errors.prompt && (
-              <p className="text-red-500 text-sm mt-1">{errors.prompt.message}</p>
+            {errors.topic && (
+              <p className="text-red-500 text-sm mt-1">{errors.topic.message}</p>
             )}
           </div>
 
@@ -258,33 +331,40 @@ export default function VisualAids() {
                 Grade Level
               </label>
               <select
-                {...register('grade_level')}
+                {...register('grade', { required: 'Grade level is required' })}
                 className="input-field"
               >
+                <option value="">Select Grade Level</option>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((grade) => (
-                  <option key={grade} value={grade}>
+                  <option key={grade} value={grade.toString()}>
                     Grade {grade}
                   </option>
                 ))}
               </select>
+              {errors.grade && (
+                <p className="text-red-500 text-sm mt-1">{errors.grade.message}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Subject (Optional)
+                Subject
               </label>
               <input
-                {...register('subject')}
+                {...register('subject', { required: 'Subject is required' })}
                 type="text"
                 placeholder="e.g., Biology, Physics, History"
                 className="input-field"
               />
+              {errors.subject && (
+                <p className="text-red-500 text-sm mt-1">{errors.subject.message}</p>
+              )}
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={loading || visualAidsState.selectedAssetType === 'video'}
+            disabled={loading}
             className="w-full btn-primary py-4 text-lg flex items-center justify-center"
           >
             {loading ? (
@@ -422,13 +502,28 @@ export default function VisualAids() {
       className="max-w-6xl mx-auto"
     >
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">My Visual Aids</h2>
-        <button
-          onClick={() => setViewMode('create')}
-          className="btn-primary"
-        >
-          Create New
-        </button>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">My Visual Aids</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {visualAidsState.savedAids.length} visual aid{visualAidsState.savedAids.length !== 1 ? 's' : ''} generated
+          </p>
+        </div>
+        <div className="flex space-x-3">
+          {visualAidsState.savedAids.length > 0 && (
+            <button
+              onClick={clearGallery}
+              className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              Clear Gallery
+            </button>
+          )}
+          <button
+            onClick={generateNewAid}
+            className="btn-primary"
+          >
+            Create New
+          </button>
+        </div>
       </div>
 
       {visualAidsState.savedAids.length === 0 ? (
@@ -445,12 +540,26 @@ export default function VisualAids() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visualAidsState.savedAids.map((aid) => (
+          {visualAidsState.savedAids.map((aid, index) => {
+            const isCurrentAid = visualAidsState.currentAid?.visual_aid_id === aid.visual_aid_id;
+            const isNewest = index === visualAidsState.savedAids.length - 1;
+            
+            return (
             <motion.div
               key={aid.visual_aid_id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              className={cn(
+                "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow relative",
+                isCurrentAid && "ring-2 ring-blue-500 ring-opacity-50"
+              )}
               whileHover={{ y: -2 }}
             >
+              {isNewest && (
+                <div className="absolute top-2 right-2 z-10">
+                  <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+                    NEW
+                  </span>
+                </div>
+              )}
               <div className="aspect-video bg-gray-100">
                 <img
                   src={aid.image_url}
@@ -482,7 +591,8 @@ export default function VisualAids() {
                 </div>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       )}
     </motion.div>

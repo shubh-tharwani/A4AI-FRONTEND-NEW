@@ -316,14 +316,22 @@ export const LessonPlanValidationSchema: ValidationSchema = {
 };
 
 /**
- * Visual Aid validation schema for backward compatibility  
+ * Visual Aid validation schema - Updated to match backend OpenAPI schema
  */
 export const VisualAidValidationSchema: ValidationSchema = {
-  prompt: [
-    ValidationRules.required('Prompt is required'),
-    ValidationRules.minLength(5, 'Prompt must be at least 5 characters long'),
-    ValidationRules.maxLength(500, 'Prompt must be less than 500 characters'),
+  topic: [
+    ValidationRules.required('Topic is required'),
+    ValidationRules.minLength(1, 'Topic must be at least 1 character long'),
+    ValidationRules.maxLength(200, 'Topic must be less than 200 characters'),
     ValidationRules.sanitizeHtml()
+  ],
+  grade: [
+    ValidationRules.required('Grade level is required')
+  ],
+  subject: [
+    ValidationRules.required('Subject is required'),
+    ValidationRules.minLength(1, 'Subject must be at least 1 character long'),
+    ValidationRules.maxLength(100, 'Subject must be less than 100 characters')
   ]
 };
 

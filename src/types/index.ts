@@ -192,12 +192,14 @@ export interface EnhancedAssistantResponse {
   ai_response?: string;
 }
 
-// Visual Aids Types
+// Visual Aids Types (Backend OpenAPI 3.1.0 compliant)
 export interface VisualAidRequest {
-  prompt: string;
-  asset_type?: 'image' | 'video';
-  grade_level?: number;
-  subject?: string;
+  topic: string;                     // Required: Topic for the visual aid
+  grade: string;                     // Required: Grade level
+  subject: string;                   // Required: Subject area
+  visualType?: string;               // Optional: Type of visual aid (default: "infographic")
+  style?: string;                    // Optional: Visual style (default: "modern") 
+  color_scheme?: string;             // Optional: Color scheme (default: "blue")
 }
 
 export interface VisualAidResponse {
