@@ -208,7 +208,8 @@ export class VisualAidsService {
       subject: request.subject?.trim() || 'Science',
       visualType: request.visualType || 'infographic',
       style: dynamicStyle,
-      color_scheme: dynamicColorScheme
+      color_scheme: dynamicColorScheme,
+      dimensions: request.dimensions || '1024x1024'  // Add dimensions for Gemini
     };
 
     // Ensure required fields are present
@@ -230,6 +231,7 @@ export class VisualAidsService {
     console.log(`  🎨 Visual Type: "${backendRequest.visualType}"`);
     console.log(`  ✨ Style: "${backendRequest.style}"`);
     console.log(`  🌈 Color Scheme: "${backendRequest.color_scheme}"`);
+    console.log(`  📐 Dimensions: "${backendRequest.dimensions}"`);
     console.log('📋 Expected Backend Schema:');
     console.log('  - topic: string (required) - THIS SHOULD DRIVE UNIQUENESS');
     console.log('  - grade: string (required)');
@@ -237,6 +239,7 @@ export class VisualAidsService {
     console.log('  - visualType: string (optional, default: "infographic")');
     console.log('  - style: string (optional, default: "modern")');
     console.log('  - color_scheme: string (optional, default: "blue")');
+    console.log('  - dimensions: string (optional, default: "1024x1024")  // NEW FOR GEMINI');
     
     try {
       const response = await apiClient.post<VisualAidResponse>('/api/v1/visual-aids/generate', backendRequest);
@@ -373,6 +376,31 @@ export class VisualAidsService {
 
   static async deleteVisualAid(visualAidId: string): Promise<any> {
     return apiClient.delete(`/api/v1/visual-aids/${visualAidId}`);
+  }
+
+  static async downloadVisualAid(visualAidId: string): Promise<string> {
+    console.log('🔽 Downloading Visual Aid with ID:', visualAidId);
+    console.log('🔗 Download URL:', `/api/v1/visual-aids/${visualAidId}/download`);
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/visual-aids/${visualAidId}/download`);
+      
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+      
+      // Convert the response to a blob and create an object URL
+      const blob = await response.blob();
+      const imageUrl = URL.createObjectURL(blob);
+      
+      console.log('✅ Visual Aid downloaded successfully');
+      console.log('🖼️ Generated Object URL:', imageUrl);
+      
+      return imageUrl;
+    } catch (error: any) {
+      console.error('❌ Visual Aid Download Error:', error);
+      throw error;
+    }
   }
 
   static async getCategories(): Promise<string[]> {

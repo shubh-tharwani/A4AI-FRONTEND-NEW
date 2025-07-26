@@ -201,6 +201,7 @@ export interface VisualAidRequest {
   visualType?: string;               // Optional: Type of visual aid (default: "infographic")
   style?: string;                    // Optional: Visual style (default: "modern") 
   color_scheme?: string;             // Optional: Color scheme (default: "blue")
+  dimensions?: string;               // Optional: Image dimensions for Gemini (default: "1024x1024")
 }
 
 export interface VisualAidResponse {

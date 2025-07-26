@@ -48,8 +48,7 @@ export default function VisualAids() {
       subject: 'Science',
       visualType: 'infographic',
       style: 'modern',
-      color_scheme: 'blue',
-      dimensions: '1024x1024'
+      color_scheme: 'blue'
     }
   });
 
@@ -88,8 +87,7 @@ export default function VisualAids() {
         subject: data.subject?.trim() || 'Science',
         visualType: visualAidsState.selectedVisualType,
         style: 'modern',
-        color_scheme: 'blue',
-        dimensions: '1024x1024'  // Add dimensions for Gemini backend
+        color_scheme: 'blue'
       };
       
       // Final validation before sending
@@ -124,76 +122,120 @@ export default function VisualAids() {
       
       // Handle Gemini-powered backend response structures
       const flexibleResponse = response as any;
-      
-      // Extract the visual aid ID from various response patterns
-      let visualAidId: string | null = null;
+      let visualAid: VisualAidResponse | null = null;
       
       // Pattern 1: Direct visual aid response from Gemini backend
-      if (flexibleResponse.visual_aid_id || flexibleResponse.id) {
-        console.log('✅ Visual Aid ID found in direct response');
-        visualAidId = flexibleResponse.visual_aid_id || flexibleResponse.id;
+      if (flexibleResponse.visual_aid_id && flexibleResponse.image_url) {
+        console.log('✅ Direct Gemini visual aid response detected');
+        visualAid = {
+          visual_aid_id: flexibleResponse.visual_aid_id,
+          status: flexibleResponse.status || 'success',
+          prompt: flexibleResponse.prompt || requestData.topic,
+          enhanced_prompt: flexibleResponse.enhanced_prompt,
+          asset_type: flexibleResponse.asset_type || requestData.visualType || 'infographic',
+          image_url: flexibleResponse.image_url,
+          filename: flexibleResponse.filename || `visual-aid-${Date.now()}.png`,
+          topic: flexibleResponse.topic || requestData.topic,
+          metadata: flexibleResponse.metadata || {
+            generation_model: 'Gemini (Vertex AI)',
+            prompt_length: requestData.topic.length,
+            image_size: 0,
+            generated_at: new Date().toISOString()
+          }
+        };
       }
       // Pattern 2: Success wrapper with data from Gemini
-      else if (flexibleResponse.success && flexibleResponse.data) {
-        console.log('✅ Nested response detected, extracting ID');
+      else if (flexibleResponse.success && flexibleResponse.data && flexibleResponse.data.image_url) {
+        console.log('✅ Nested Gemini success response detected');
         const data = flexibleResponse.data;
-        visualAidId = data.visual_aid_id || data.id;
+        visualAid = {
+          visual_aid_id: data.visual_aid_id || data.id || Date.now().toString(),
+          status: 'success',
+          prompt: data.prompt || requestData.topic,
+          enhanced_prompt: data.enhanced_prompt,
+          asset_type: data.asset_type || requestData.visualType || 'infographic',
+          image_url: data.image_url,
+          filename: data.filename || `visual-aid-${Date.now()}.png`,
+          topic: data.topic || requestData.topic,
+          metadata: data.metadata || {
+            generation_model: 'Gemini (Vertex AI)',
+            prompt_length: requestData.topic.length,
+            image_size: data.image_size || 0,
+            generated_at: data.generated_at || new Date().toISOString()
+          }
+        };
       }
-      // Pattern 3: Simple response with ID field
-      else if (flexibleResponse.id) {
-        console.log('✅ Simple ID response detected');
-        visualAidId = flexibleResponse.id;
+      // Pattern 3: Simple Gemini image response
+      else if (flexibleResponse.image_url) {
+        console.log('✅ Simple Gemini image response detected');
+        visualAid = {
+          visual_aid_id: flexibleResponse.id || Date.now().toString(),
+          status: 'success',
+          prompt: requestData.topic,
+          asset_type: requestData.visualType || 'infographic',
+          image_url: flexibleResponse.image_url,
+          filename: flexibleResponse.filename || `visual-aid-${Date.now()}.png`,
+          topic: requestData.topic,
+          metadata: {
+            generation_model: 'Gemini (Vertex AI)',
+            prompt_length: requestData.topic.length,
+            image_size: flexibleResponse.image_size || 0,
+            generated_at: flexibleResponse.created_at || new Date().toISOString()
+          }
+        };
       }
-      
-      // Check for error responses
-      if (flexibleResponse.error || flexibleResponse.status === 'error') {
+      // Pattern 4: Check for text response (Gemini returned text instead of image)
+      else if (typeof flexibleResponse === 'string' || flexibleResponse.message) {
+        console.error('❌ Gemini returned text instead of generating image');
+        console.error('📄 Response content:', typeof flexibleResponse === 'string' ? flexibleResponse.substring(0, 200) : flexibleResponse.message?.substring(0, 200));
+        toast.error('Gemini model returned text description instead of generating an image. Please check backend Gemini configuration for image generation.');
+        return;
+      }
+      // Pattern 5: Error response
+      else if (flexibleResponse.error || flexibleResponse.status === 'error') {
         console.error('❌ Gemini API error response');
         const errorMsg = flexibleResponse.error || flexibleResponse.message || 'Unknown error from Gemini service';
         toast.error(`Gemini API Error: ${errorMsg}`);
         return;
       }
       
-      // Check for text response (Gemini returned text instead of image)
-      if (typeof flexibleResponse === 'string' || (flexibleResponse.message && !visualAidId)) {
-        console.error('❌ Gemini returned text instead of generating image');
-        console.error('📄 Response content:', typeof flexibleResponse === 'string' ? flexibleResponse.substring(0, 200) : flexibleResponse.message?.substring(0, 200));
-        toast.error('Gemini model returned text description instead of generating an image. Please check backend Gemini configuration for image generation.');
-        return;
-      }
-      
-      if (!visualAidId) {
-        console.error('❌ No visual aid ID found in response');
-        console.error('📋 Response keys:', Object.keys(flexibleResponse));
-        toast.error('No visual aid ID provided by Gemini backend. Cannot download image.');
-        return;
-      }
-      
-      console.log('🔽 Downloading image for Visual Aid ID:', visualAidId);
-      
-      // Download the actual image using the ID
-      const imageUrl = await ApiService.VisualAids.downloadVisualAid(visualAidId);
-      
-      // Create the visual aid object with the downloaded image URL
-      const visualAid: VisualAidResponse = {
-        visual_aid_id: visualAidId,
-        status: flexibleResponse.status || 'success',
-        prompt: flexibleResponse.prompt || requestData.topic,
-        enhanced_prompt: flexibleResponse.enhanced_prompt,
-        asset_type: flexibleResponse.asset_type || requestData.visualType || 'infographic',
-        image_url: imageUrl,
-        filename: flexibleResponse.filename || `visual-aid-${Date.now()}.png`,
-        topic: flexibleResponse.topic || requestData.topic,
-        metadata: flexibleResponse.metadata || {
-          generation_model: 'Gemini (Vertex AI)',
-          prompt_length: requestData.topic.length,
-          image_size: 0,
-          generated_at: new Date().toISOString()
+      if (!visualAid) {
+        console.error('🚨 Unexpected Gemini response structure');
+        console.error('📋 Expected patterns for Gemini Visual Aids:');
+        console.error('  1. { visual_aid_id, image_url, status, ... }');
+        console.error('  2. { success: true, data: { image_url, ... } }');
+        console.error('  3. { image_url, id, ... }');
+        console.error('📋 Received keys:', Object.keys(flexibleResponse));
+        
+        // Last resort: try to find any image URL in the response
+        const foundImageUrl = findImageUrlInResponse(flexibleResponse);
+        if (foundImageUrl) {
+          console.log('🔧 Rescue: Found image URL at unexpected location:', foundImageUrl);
+          visualAid = {
+            visual_aid_id: Date.now().toString(),
+            status: 'success',
+            prompt: requestData.topic,
+            asset_type: requestData.visualType || 'infographic',
+            image_url: foundImageUrl,
+            filename: `visual-aid-${Date.now()}.png`,
+            topic: requestData.topic,
+            metadata: {
+              generation_model: 'Gemini (Vertex AI)',
+              prompt_length: requestData.topic.length,
+              image_size: 0,
+              generated_at: new Date().toISOString()
+            }
+          };
+        } else {
+          toast.error('Gemini backend response format not recognized. Please check backend configuration.');
+          console.error('💡 Debug: Check if Gemini is properly configured for image generation');
+          return;
         }
-      };
+      }
       
       // Validate that we have a valid image URL
       if (!visualAid.image_url || visualAid.image_url.trim() === '') {
-        throw new Error('No image URL provided after download. The Visual Aid may not have been generated properly.');
+        throw new Error('No image URL provided by Gemini. The Visual Aid may not have been generated properly.');
       }
       
       console.log('✅ Final Gemini Visual Aid:', visualAid);
@@ -205,9 +247,9 @@ export default function VisualAids() {
         savedAids: [...prev.savedAids, visualAid],
       }));
       setViewMode('gallery');
-      toast.success(`${visualAidsState.selectedVisualType} generated and downloaded successfully with Gemini! 🎨`);
+      toast.success(`${visualAidsState.selectedVisualType} generated successfully with Gemini! 🎨`);
       
-      console.log('🎉 NEW GEMINI VISUAL AID GENERATED AND DOWNLOADED SUCCESSFULLY!');
+      console.log('🎉 NEW GEMINI VISUAL AID GENERATED SUCCESSFULLY!');
         
     } catch (error: any) {
       console.error('❌ Gemini Visual Aid generation error:', error);
@@ -224,15 +266,53 @@ export default function VisualAids() {
         console.log('💡 GEMINI DEBUGGING TIPS:');
         console.log('  1. Verify Gemini Vertex AI is properly configured for image generation');
         console.log('  2. Check that the Visual Aids service is using Gemini Pro Vision or Imagen');
-        console.log('  3. Ensure the backend /api/v1/visual-aids/generate endpoint returns visual aid IDs');
-        console.log('  4. Ensure the backend /api/v1/visual-aids/{id}/download endpoint is working');
-        console.log('  5. Check backend logs for Gemini API errors');
+        console.log('  3. Ensure the backend /api/v1/visual-aids/generate endpoint returns image URLs');
+        console.log('  4. Check backend logs for Gemini API errors');
       } else {
         toast.error(`Gemini Error: ${errorMessage}. Please try again.`);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to find image URL in any part of the response
+  const findImageUrlInResponse = (obj: any, path: string = ''): string | null => {
+    if (!obj || typeof obj !== 'object') return null;
+    
+    // Direct properties to check for image URLs
+    const imageProps = [
+      'image_url', 'imageUrl', 'image_uri', 'imageUri',
+      'url', 'uri', 'image', 'asset_url', 'assetUrl',
+      'file_url', 'fileUrl', 'download_url', 'downloadUrl',
+      'media_url', 'mediaUrl', 'src', 'href'
+    ];
+    
+    for (const prop of imageProps) {
+      if (obj[prop] && typeof obj[prop] === 'string') {
+        const url = obj[prop];
+        // Check if it looks like a valid image URL
+        if (url.includes('http') || url.includes('.png') || url.includes('.jpg') || 
+            url.includes('.jpeg') || url.includes('.gif') || url.includes('.webp') ||
+            url.includes('blob:') || url.includes('data:image')) {
+          console.log(`🎯 Found image URL at ${path ? path + '.' : ''}${prop}: ${url}`);
+          return url;
+        }
+      }
+    }
+    
+    // Recursively check nested objects and arrays
+    for (const key in obj) {
+      const currentPath = path ? `${path}.${key}` : key;
+      const value = obj[key];
+      
+      if (value && typeof value === 'object') {
+        const found = findImageUrlInResponse(value, currentPath);
+        if (found) return found;
+      }
+    }
+    
+    return null;
   };
 
   const toggleLike = (aidId: string) => {
@@ -338,7 +418,7 @@ export default function VisualAids() {
           <p className="text-gray-600">Create unique, AI-generated educational images using Google's Gemini Vertex AI</p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
             <p className="text-sm text-blue-800">
-              ✨ Powered by Gemini Vertex AI - Images are generated and downloaded directly from the backend!
+              ✨ Powered by Gemini Vertex AI - Each visual aid is generated uniquely based on your topic, grade level, and subject!
             </p>
           </div>
         </div>
@@ -408,7 +488,7 @@ export default function VisualAids() {
             {loading ? (
               <>
                 <LoadingSpinner size="sm" color="white" className="mr-3" />
-                Generating & Downloading with Gemini...
+                Generating with Gemini...
               </>
             ) : (
               <>
@@ -443,9 +523,7 @@ export default function VisualAids() {
               className="w-full h-full object-contain"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                // Use a data URL for a simple gray placeholder to avoid infinite loops
-                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzlDQTNBRiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGZhaWxlZCB0byBsb2FkPC90ZXh0Pjwvc3ZnPg==';
-                target.onerror = null; // Prevent further error events
+                target.src = '/api/placeholder/800/600';
               }}
             />
             {/* Gemini Badge */}
@@ -480,8 +558,8 @@ export default function VisualAids() {
                 <div className="text-sm text-gray-600">{aid.metadata.generation_model}</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-medium text-gray-900">ID</div>
-                <div className="text-sm text-gray-600">{aid.visual_aid_id.substring(0, 8)}...</div>
+                <div className="text-sm font-medium text-gray-900">Size</div>
+                <div className="text-sm text-gray-600">{(aid.metadata.image_size / 1024).toFixed(1)}KB</div>
               </div>
               <div className="text-center">
                 <div className="text-sm font-medium text-gray-900">Generated</div>
@@ -549,8 +627,7 @@ export default function VisualAids() {
     >
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">My Gemini Visual Aids</h2>          
-          <p className="text-sm text-gray-600 mt-1">
+          <h2 className="text-2xl font-bold text-gray-900">My Gemini Visual Aids</h2>          <p className="text-sm text-gray-600 mt-1">
             {visualAidsState.savedAids.length} visual aid{visualAidsState.savedAids.length !== 1 ? 's' : ''} generated with Gemini AI
           </p>
         </div>
@@ -618,9 +695,7 @@ export default function VisualAids() {
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    // Use a data URL for a simple gray placeholder to avoid infinite loops
-                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzlDQTNBRiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZhaWxlZCB0byBsb2FkPC90ZXh0Pjwvc3ZnPg==';
-                    target.onerror = null; // Prevent further error events
+                    target.src = '/api/placeholder/400/300';
                   }}
                 />
               </div>
