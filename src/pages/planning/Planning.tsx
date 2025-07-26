@@ -1,124 +1,184 @@
 import React, { useState } from 'react';
-// EditLessonPlanForm component and props
-interface EditLessonPlanFormProps {
-  plan: LessonPlan;
-  onSave: (p: LessonPlan) => void;
-  onCancel: () => void;
-}
-
-const EditLessonPlanForm: React.FC<EditLessonPlanFormProps> = ({ plan, onSave, onCancel }) => {
-  const [formState, setFormState] = useState({
-    title: plan.title,
-    subject: plan.subject,
-    topic: plan.topic,
-    grade: plan.grade,
-    duration: plan.duration,
-    language: plan.language,
-    date: plan.date || '',
-    start_time: plan.start_time || '09:00',
-    learning_objectives: plan.learning_objectives.join('\n'),
-    assessment: plan.assessment,
-    resources: plan.resources.join('\n'),
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormState(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const updatedPlan: LessonPlan = {
-      ...plan,
-      title: formState.title,
-      subject: formState.subject,
-      topic: formState.topic,
-      grade: Number(formState.grade),
-      duration: Number(formState.duration),
-      language: formState.language,
-      date: formState.date,
-      start_time: formState.start_time,
-      learning_objectives: formState.learning_objectives.split('\n').map(s => s.trim()).filter(Boolean),
-      assessment: formState.assessment,
-      resources: formState.resources.split('\n').map(s => s.trim()).filter(Boolean),
-    };
-    onSave(updatedPlan);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4 mt-8 p-8 bg-gray-50 rounded-xl border border-gray-200">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-        <input name="title" value={formState.title} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
-        <input name="subject" value={formState.subject} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Topic</label>
-        <input name="topic" value={formState.topic} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
-        <input name="grade" type="number" value={formState.grade} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
-        <input name="duration" type="number" value={formState.duration} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
-        <input name="language" value={formState.language} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-        <input name="date" type="date" value={formState.date} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
-        <input name="start_time" type="time" value={formState.start_time} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Learning Objectives (one per line)</label>
-        <textarea name="learning_objectives" value={formState.learning_objectives} onChange={handleChange} className="input-field" rows={3} />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Assessment</label>
-        <input name="assessment" value={formState.assessment} onChange={handleChange} className="input-field" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Resources (one per line)</label>
-        <textarea name="resources" value={formState.resources} onChange={handleChange} className="input-field" rows={2} />
-      </div>
-      <div className="flex space-x-4 mt-4">
-        <button type="submit" className="btn-primary">Save</button>
-        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  );
-};
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
+import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+
+interface PlanCardProps {
+  plan: any;
+}
+
+const PlanCard: React.FC<PlanCardProps> = ({ plan }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedUnit, setExpandedUnit] = useState<string | null>(null);
+
+  // Extract lesson plan details safely based on the backend response structure
+  const lessonPlan = plan.lesson_plan?.lesson_plan || plan;
+  const curriculumPlan = lessonPlan.curriculum_plan || plan.curriculum_plan || [];
+  const learningObjectives = lessonPlan.learning_objectives || plan.learning_objectives || [];
+  
+  // List view fields - these should come from the top level or lesson_plan.lesson_plan
+  const duration = lessonPlan.duration || plan.duration || '-';
+  const grade = lessonPlan.grade || plan.grade || '-';
+  const startTime = lessonPlan.start_time || plan.start_time || '-';
+  const subject = lessonPlan.subject || plan.subject || '-';
+  const topic = lessonPlan.topic || plan.topic || '-';
+
+  console.log('Plan Card Data:', {
+    duration,
+    grade,
+    startTime,
+    subject,
+    topic,
+    curriculumPlanLength: curriculumPlan.length
+  });
+
+  return (
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4 hover:shadow-lg transition-shadow">
+      {/* List View Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col md:flex-row md:items-center md:space-x-6 flex-1">
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span className="font-medium">{lessonPlan.date || plan.date || new Date().toISOString().slice(0, 10)}</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <ClockIcon className="w-4 h-4" />
+            <span>{startTime}</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <AcademicCapIcon className="w-4 h-4" />
+            <span>Grade {grade}</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <BookOpenIcon className="w-4 h-4" />
+            <span>{subject}</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <ClockIcon className="w-4 h-4" />
+            <span>{duration} min</span>
+          </div>
+        </div>
+        <button 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-blue-600 hover:text-blue-800 transition-colors"
+        >
+          <ChevronRightIcon className={`w-5 h-5 transition-transform ${isExpanded ? 'transform rotate-90' : ''}`} />
+        </button>
+      </div>
+
+      {/* Topic (main title) */}
+      <div className="text-blue-700 font-medium text-lg mb-3">
+        {topic}
+      </div>
+
+      {/* Learning Objectives - Always visible */}
+      <div className="mb-3">
+        <span className="font-semibold text-gray-700 text-sm">Learning Objectives:</span>
+        <ul className="list-disc list-inside text-gray-600 text-sm mt-1 space-y-1">
+          {learningObjectives.map((obj: string, idx: number) => (
+            <li key={idx}>{obj}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Expanded Details: Curriculum Plan */}
+      {isExpanded && (
+        <div className="mt-4 border-t pt-4">
+          <h4 className="font-semibold text-gray-800 mb-3">Curriculum Plan Details</h4>
+          {curriculumPlan.length > 0 ? (
+            <div className="space-y-3">
+              {curriculumPlan.map((unit: any, index: number) => {
+                const schedule = unit.schedule || {};
+                const unitTopic = schedule.topic || `Unit ${index + 1}`;
+                
+                return (
+                  <div 
+                    key={index} 
+                    className="border rounded-lg p-4 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow transition-shadow"
+                  >
+                    <div 
+                      className="flex items-center justify-between cursor-pointer"
+                      onClick={() => setExpandedUnit(expandedUnit === unitTopic ? null : unitTopic)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-blue-600 text-sm font-mono bg-blue-100 px-2 py-1 rounded">
+                          {schedule.start_time || 'No time'}
+                        </span>
+                        <h3 className="font-semibold text-blue-900">{unitTopic}</h3>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {schedule.duration || 0} min
+                        </span>
+                        <ChevronDownIcon className={`w-5 h-5 transition-transform text-gray-400 ${
+                          expandedUnit === unitTopic ? 'transform rotate-180' : ''
+                        }`} />
+                      </div>
+                    </div>
+                    
+                    {expandedUnit === unitTopic && (
+                      <div className="mt-4 space-y-3">
+                        {/* Activity Description */}
+                        {schedule.activity && (
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Activity</h4>
+                            <p className="text-gray-700 text-sm leading-relaxed">{schedule.activity}</p>
+                          </div>
+                        )}
+                        
+                        {/* Content */}
+                        {unit.content && (
+                          <div className="bg-blue-50 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-blue-700 mb-2">Content</h4>
+                            <p className="text-blue-800 text-sm leading-relaxed">{unit.content}</p>
+                          </div>
+                        )}
+                        
+                        {/* Materials */}
+                        {schedule.materials && (
+                          <div className="bg-green-50 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-green-700 mb-2">Materials Needed</h4>
+                            <p className="text-green-800 text-sm">{schedule.materials}</p>
+                          </div>
+                        )}
+                        
+                        {/* Notes if available */}
+                        {unit.notes && (
+                          <div className="bg-yellow-50 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-yellow-700 mb-2">Notes</h4>
+                            <p className="text-yellow-800 text-sm">{unit.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-gray-500 text-center py-8 bg-gray-50 rounded-lg">
+              <BookOpenIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              <p>No detailed curriculum plan available</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 import {
   AcademicCapIcon,
-  CalendarDaysIcon,
-  ClipboardDocumentListIcon,
   BookOpenIcon,
-  CheckCircleIcon,
   ClockIcon,
-  UserGroupIcon,
   LightBulbIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import Navigation from '../../components/layout/Navigation';
 import { LessonPlanFormRequest, LessonPlan } from '../../types';
-import { getGradeLabel, formatDate, cn } from '../../lib/utils';
+import { getGradeLabel, cn } from '../../lib/utils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
 import { validateObject, LessonPlanValidationSchema, showValidationErrors } from '../../utils/validation';
-
-type PlanningView = 'create' | 'view';
 
 interface PlanningState {
   currentPlan: LessonPlan | null;
@@ -132,9 +192,8 @@ export default function Planning() {
   const [planningState, setPlanningState] = useState<PlanningState>({
     currentPlan: null,
     savedPlans: [],
-    selectedPlan: null,
+    selectedPlan: null
   });
-  const [editMode, setEditMode] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LessonPlanFormRequest>({
     defaultValues: {
@@ -142,7 +201,6 @@ export default function Planning() {
       subject: '',
       topic: '',
       duration: 45,
-      language: 'English',
       date: new Date().toISOString().slice(0, 10),
       start_time: '09:00',
     }
@@ -219,41 +277,30 @@ export default function Planning() {
       }
       
       if (response.status === 'success' && response.lesson_plan) {
-        // Validate lesson plan structure
-        if (!response.lesson_plan.plan_overview) {
+        // Validate lesson plan structure - updated to match actual backend response
+        const responseData = response as any; // Use any type to handle actual backend structure
+        if (!responseData.lesson_plan.lesson_plan) {
           throw new Error('Lesson plan missing essential content');
         }
 
         // Convert backend response to our LessonPlan format with better error handling
+        const lessonPlanData = responseData.lesson_plan.lesson_plan;
         const newPlan: LessonPlan = {
           id: response.plan_id || Date.now().toString(),
-          title: response.lesson_plan?.plan_overview?.title || 
-                `${data.subject.trim()} - ${data.topic.trim()}`,
-          grade: data.grade,
-          subject: data.subject.trim(),
-          topic: data.topic.trim(),
-          duration: data.duration,
-          language: data.language || 'English',
-          learning_objectives: response.lesson_plan?.plan_overview?.learning_outcomes || 
+          title: `${lessonPlanData.subject || data.subject.trim()} - ${lessonPlanData.topic || data.topic.trim()}`,
+          grade: lessonPlanData.grade || data.grade,
+          subject: lessonPlanData.subject || data.subject.trim(),
+          topic: lessonPlanData.topic || data.topic.trim(),
+          duration: lessonPlanData.duration || data.duration,
+          start_time: lessonPlanData.start_time || data.start_time,
+          language: 'English', // Default language since form field was removed
+          learning_objectives: lessonPlanData.learning_objectives || 
                               [`Learn about ${data.topic.trim()}`],
-          activities: response.lesson_plan?.daily_schedule ? response.lesson_plan.daily_schedule.map(day => 
-            (day.activities || []).map(activity => ({
-              name: activity.topic || activity.activity_type || 'Learning Activity',
-              description: activity.description || 'Educational activity',
-              duration: 15, // Default duration as per original code
-              materials: activity.materials_needed || []
-            }))
-          ).flat() : [{
-            name: 'Introduction Activity',
-            description: `Introduction to ${data.topic.trim()}`,
-            duration: Math.floor(data.duration / 3),
-            materials: ['Whiteboard', 'Materials as needed']
-          }],
-          assessment: response.lesson_plan?.assessment_plan?.formative_assessments?.join(', ') ||
-                     'Ongoing observation and student participation',
-          resources: response.lesson_plan?.resources?.required_materials || 
-                    ['Basic classroom materials'],
+          curriculum_plan: lessonPlanData.curriculum_plan || [],
+          assessment: 'Ongoing observation and student participation',
+          resources: ['Basic classroom materials'],
           created_at: new Date().toISOString(),
+          date: data.date,
         };
         
         setPlanningState(prev => ({
@@ -262,7 +309,7 @@ export default function Planning() {
           savedPlans: [...prev.savedPlans, newPlan],
         }));
         setView('view');
-        toast.success('Lesson plan generated successfully!');
+        toast.success('🎉 Your lesson plan is ready! Check out the detailed curriculum below.');
       } else {
         console.error('Invalid lesson plan structure:', response);
         toast.error('Invalid lesson plan data received from server. Please try again.');
@@ -276,130 +323,113 @@ export default function Planning() {
     }
   };
 
-  const deletePlan = (planId: string) => {
-    setPlanningState(prev => ({
-      ...prev,
-      savedPlans: prev.savedPlans.filter(plan => plan.id !== planId),
-      currentPlan: prev.currentPlan?.id === planId ? null : prev.currentPlan,
-    }));
-    toast.success('Lesson plan deleted');
-  };
-
-  const viewPlan = (plan: LessonPlan) => {
-    setPlanningState(prev => ({
-      ...prev,
-      currentPlan: plan,
-    }));
-    setView('view');
-    setEditMode(false);
-  };
-
-  const editPlan = (plan: LessonPlan) => {
-    setPlanningState(prev => ({
-      ...prev,
-      currentPlan: plan,
-    }));
-    setEditMode(true);
-    setView('view');
-  };
-
-  const saveEditedPlan = (updatedPlan: LessonPlan) => {
-    setPlanningState(prev => ({
-      ...prev,
-      currentPlan: updatedPlan,
-      savedPlans: prev.savedPlans.map(plan => plan.id === updatedPlan.id ? updatedPlan : plan),
-    }));
-    setEditMode(false);
-    toast.success('Lesson plan updated');
-  };
-
   const fetchCurrentPlan = async () => {
     try {
       setLoading(true);
-      // Get user ID from localStorage
       const userJson = localStorage.getItem('user');
       if (!userJson) {
         toast.error('Please login to view plans');
+        setLoading(false);
         return;
       }
-
+      
       const user = JSON.parse(userJson);
-      console.log(user.id)
+      console.log('Fetching plans for user:', user.id);
       const response = await ApiService.Planning.getCurrentPlan(user.id);
-
-      if (response && response.lesson_plan) {
-        try {
-          const lessonPlanData = JSON.parse(response.lesson_plan.replace(/'/g, '"'));
-          const curriculum = lessonPlanData.curriculum;
-
-          const newPlan: LessonPlan = {
-            id: response.plan_id,
-            title: `${curriculum.subject} - ${curriculum.topic}`,
-            grade: curriculum.grade,
-            subject: curriculum.subject,
-            topic: curriculum.topic,
-            duration: curriculum.duration,
-            language: 'English',
-            learning_objectives: curriculum.learningObjectives,
-            activities: curriculum.schedule.map((item: { topic: string; activities: string[]; duration: number; startTime: string }) => ({
-              name: item.topic,
-              description: item.activities.join('\n'),
-              duration: item.duration,
-              materials: []
-            })),
-            assessment: 'Based on class participation and understanding',
-            resources: ['Textbook', 'Visual aids', 'Class materials'],
-            created_at: new Date().toISOString()
-          };
-
-          setPlanningState(prev => ({
-            ...prev,
-            currentPlan: newPlan
-          }));
-          setView('view');
-          toast.success('Current plan loaded successfully!');
-        } catch (parseError) {
-          console.error('Error parsing lesson plan:', parseError);
-          toast.error('Error parsing lesson plan data');
-        }
-      } else {
-        toast.error('No current plan found');
+      
+      if (!response || !Array.isArray(response.curriculum) || response.curriculum.length === 0) {
+        toast.error('No lesson plans found');
+        setPlanningState(prev => ({ ...prev, savedPlans: [] }));
+        setLoading(false);
+        return;
       }
+      
+      console.log('Raw backend response:', response);
+      
+      // Parse curriculum array based on the actual backend structure
+      const convertedPlans = response.curriculum.map((curriculumItem: any) => {
+        // Extract nested lesson plan data
+        const lessonPlanData = curriculumItem.lesson_plan?.lesson_plan || curriculumItem.lesson_plan || {};
+        
+        // Extract list view fields with proper fallbacks
+        const start_time = lessonPlanData.start_time || curriculumItem.start_time || '09:00';
+        const subject = lessonPlanData.subject || curriculumItem.subject || 'Subject';
+        const duration = lessonPlanData.duration || curriculumItem.duration || 45;
+        const grade = lessonPlanData.grade || curriculumItem.grade || 9;
+        const topic = lessonPlanData.topic || curriculumItem.topic || 'Topic';
+        
+        // Extract learning objectives
+        const learning_objectives = lessonPlanData.learning_objectives || 
+                                   curriculumItem.learning_objectives || 
+                                   [];
+        
+        // Extract curriculum plan for detailed view
+        const curriculum_plan = lessonPlanData.curriculum_plan || [];
+        
+        console.log('Converted plan data:', {
+          id: curriculumItem.id,
+          subject,
+          topic,
+          grade,
+          duration,
+          start_time,
+          curriculum_plan_length: curriculum_plan.length
+        });
+        
+        return {
+          id: curriculumItem.id || String(Date.now()),
+          title: `${subject} - ${topic}`,
+          grade,
+          subject,
+          topic,
+          duration,
+          start_time,
+          learning_objectives,
+          curriculum_plan,
+          assessment: 'Ongoing assessment and participation',
+          resources: ['Standard classroom materials'],
+          created_at: curriculumItem.created_at || new Date().toISOString(),
+          date: curriculumItem.date || new Date().toISOString().slice(0, 10),
+          language: 'English'
+        };
+      });
+      
+      setPlanningState(prev => ({ ...prev, savedPlans: convertedPlans }));
+      setView('view');
+      toast.success(`Loaded ${convertedPlans.length} lesson plan(s) successfully!`);
+      
     } catch (error) {
-      console.error('Error fetching current plan:', error);
-      toast.error('Failed to load current plan');
+      console.error('Error fetching plans:', error);
+      toast.error('Failed to load plans. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const renderNavigation = () => (
-    <div className="flex space-x-4 mb-8">
-      {[
-        { id: 'create', name: 'Create Plan', icon: ClipboardDocumentListIcon },
-        { id: 'view', name: 'Current Plan', icon: BookOpenIcon },
-      ].map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => { 
-            if (tab.id === 'view') {
-              fetchCurrentPlan();
-            } else {
-              setView(tab.id as 'create' | 'view');
-              setEditMode(false);
-            }
-          }}
-          className={cn(
-            "flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors",
-            view === tab.id
-              ? "bg-blue-100 text-blue-700 border border-blue-200"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          )}
-        >
-          <tab.icon className="w-5 h-5" />
-          <span>{tab.name}</span>
-        </button>
-      ))}
+    <div className="flex space-x-1 mb-8 bg-gray-100 rounded-lg p-1">
+      <button
+        onClick={() => setView('create')}
+        className={cn(
+          "flex-1 py-3 px-6 rounded-md font-medium transition-all duration-200",
+          view === 'create'
+            ? "bg-white text-blue-600 shadow-sm"
+            : "text-gray-600 hover:text-gray-900"
+        )}
+      >
+        Create Plan
+      </button>
+      <button
+        onClick={() => setView('view')}
+        className={cn(
+          "flex-1 py-3 px-6 rounded-md font-medium transition-all duration-200",
+          view === 'view'
+            ? "bg-white text-blue-600 shadow-sm"
+            : "text-gray-600 hover:text-gray-900"
+        )}
+      >
+        View Plans
+      </button>
     </div>
   );
 
@@ -411,11 +441,11 @@ export default function Planning() {
     >
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AcademicCapIcon className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Lesson Plan</h2>
-          <p className="text-gray-600">Generate a comprehensive lesson plan tailored to your needs</p>
+          <LightBulbIcon className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create New Lesson Plan</h2>
+          <p className="text-gray-600">
+            Generate a comprehensive lesson plan tailored to your curriculum needs
+          </p>
         </div>
 
         <form onSubmit={handleSubmit(generateLessonPlan)} className="space-y-6">
@@ -516,21 +546,6 @@ export default function Planning() {
               <p className="text-red-500 text-sm mt-1">{errors.start_time.message}</p>
             )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Language
-            </label>
-            <select
-              {...register('language')}
-              className="input-field"
-            >
-              <option value="English">English</option>
-              <option value="Spanish">Spanish</option>
-              <option value="French">French</option>
-              <option value="German">German</option>
-              <option value="Mandarin">Mandarin</option>
-            </select>
-          </div>
 
           <button
             type="submit"
@@ -555,23 +570,30 @@ export default function Planning() {
   );
 
   const renderLessonPlan = () => {
-    if (!planningState.currentPlan) {
+    if (planningState.savedPlans.length === 0) {
       return (
         <div className="text-center py-12">
           <AcademicCapIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No lesson plan selected</h3>
-          <p className="text-gray-600 mb-6">Create a new lesson plan or select one from your saved plans</p>
-          <button
-            onClick={() => setView('create')}
-            className="btn-primary"
-          >
-            Create New Plan
-          </button>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No lesson plans found</h3>
+          <p className="text-gray-600 mb-6">Create a new lesson plan or try refreshing the page</p>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => setView('create')}
+              className="btn-primary"
+            >
+              Create New Plan
+            </button>
+            <button
+              onClick={fetchCurrentPlan}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+              <span>Refresh Plans</span>
+            </button>
+          </div>
         </div>
       );
     }
-
-    const plan = planningState.currentPlan;
 
     return (
       <motion.div
@@ -579,151 +601,36 @@ export default function Planning() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-4xl mx-auto"
       >
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Plan Header */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-8 text-white">
-            <h2 className="text-3xl font-bold mb-4">{plan.title}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-blue-100">
-              <div className="flex items-center">
-                <AcademicCapIcon className="w-5 h-5 mr-2" />
-                Grade {plan.grade}
-              </div>
-              <div className="flex items-center">
-                <BookOpenIcon className="w-5 h-5 mr-2" />
-                {plan.subject}
-              </div>
-              <div className="flex items-center">
-                <ClockIcon className="w-5 h-5 mr-2" />
-                {plan.duration} minutes
-              </div>
-              <div className="flex items-center">
-                <UserGroupIcon className="w-5 h-5 mr-2" />
-                {plan.language}
-              </div>
-              <div className="flex items-center">
-                <CalendarDaysIcon className="w-5 h-5 mr-2" />
-                {plan.date || '-'}
-              </div>
-            </div>
-          </div>
+        {/* Refresh Button */}
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={fetchCurrentPlan}
+            className="btn-secondary flex items-center space-x-2"
+            disabled={loading}
+          >
+            <ArrowPathIcon className={cn("w-5 h-5", loading && "animate-spin")} />
+            <span>{loading ? "Refreshing..." : "Refresh Plans"}</span>
+          </button>
+        </div>
 
-          <div className="p-8 space-y-8">
-            {/* Learning Objectives */}
-            {plan.learning_objectives && plan.learning_objectives.length > 0 && (
-              <section>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <CheckCircleIcon className="w-6 h-6 mr-2 text-green-500" />
-                  Learning Objectives
-                </h3>
-                <ul className="space-y-2">
-                  {plan.learning_objectives && plan.learning_objectives.map((objective, index) => (
-                    <li key={index} className="flex items-start">
-                      <span className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-sm font-semibold text-green-600 mr-3 mt-0.5">
-                        {index + 1}
-                      </span>
-                      <span className="text-gray-700">{objective}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Activities */}
-            {plan.activities && plan.activities.length > 0 && (
-              <section>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <LightBulbIcon className="w-6 h-6 mr-2 text-yellow-500" />
-                  Lesson Activities
-                </h3>
-                <div className="space-y-4">
-                  {plan.activities && plan.activities.map((activity, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-lg font-medium text-gray-900">
-                          Activity {index + 1}: {activity.name}
-                        </h4>
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                          <ClockIcon className="w-4 h-4 mr-1" />
-                          {activity.duration} min
-                        </span>
-                      </div>
-                      <p className="text-gray-700 mb-4">{activity.description}</p>
-                      {activity.materials && activity.materials.length > 0 && (
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-900 mb-2">Materials Needed:</h5>
-                          <ul className="text-sm text-gray-600 list-disc list-inside">
-                            {activity.materials.map((material, idx) => (
-                              <li key={idx}>{material}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Assessment */}
-            {plan.assessment && (
-              <section>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <ClipboardDocumentListIcon className="w-6 h-6 mr-2 text-purple-500" />
-                  Assessment
-                </h3>
-                <div className="bg-purple-50 rounded-lg p-6">
-                  <p className="text-purple-800">{plan.assessment}</p>
-                </div>
-              </section>
-            )}
-
-            {/* Resources */}
-            {plan.resources && plan.resources.length > 0 && (
-              <section>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <BookOpenIcon className="w-6 h-6 mr-2 text-indigo-500" />
-                  Additional Resources
-                </h3>
-                <ul className="space-y-2">
-                  {plan.resources && plan.resources.map((resource, index) => (
-                    <li key={index} className="text-gray-700 flex items-start">
-                      <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-                      {resource}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-              <button
-                onClick={() => setView('create')}
-                className="btn-secondary"
-              >
-                Create New Plan
-              </button>
-              <button
-                onClick={() => setEditMode(true)}
-                className="btn-primary"
-              >
-                Edit Plan
-              </button>
-            </div>
-            {editMode && (
-              <EditLessonPlanForm
-                plan={plan}
-                onSave={saveEditedPlan}
-                onCancel={() => setEditMode(false)}
-              />
-            )}
-          </div>
+        {/* Plans Content */}
+        <div className="space-y-4">
+          {planningState.savedPlans.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} />
+          ))}
         </div>
       </motion.div>
     );
   };
 
   // Removed manage view
+
+  // Effect to fetch plans when first switching to view
+  React.useEffect(() => {
+    if (view === 'view' && planningState.savedPlans.length === 0) {
+      fetchCurrentPlan();
+    }
+  }, [view]);
 
   return (
     <Navigation>

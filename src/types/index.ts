@@ -241,6 +241,8 @@ export interface LessonPlanFormRequest {
   topic: string;
   duration: number;
   language: string;
+  date: string;
+  start_time: string;
 }
 
 // Lesson Plan Model
@@ -252,12 +254,27 @@ export interface LessonPlan {
   topic: string;
   duration: number;
   language: string;
+  date?: string;
+  start_time?: string;
   learning_objectives?: string[];
+  curriculum_plan?: CurriculumUnit[];
   activities?: LessonActivity[];
   assessment?: string;
   resources?: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface CurriculumUnit {
+  content: string;
+  schedule: {
+    start_time: string;
+    materials: string;
+    duration: number;
+    activity: string;
+    topic: string;
+  };
+  notes?: string;
 }
 
 export interface LessonActivity {
