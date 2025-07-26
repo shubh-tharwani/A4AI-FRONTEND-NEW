@@ -69,7 +69,7 @@ const convertApiQuestionToInternal = (apiQuestion: ApiQuizQuestion, index: numbe
   const difficulty = apiQuestion.difficulty || 'medium';
   const rubric = apiQuestion.rubric || (apiQuestion as any).scoring_rubric;
   
-  if (questionType === 'mcq' || questionType === 'multiple_choice') {
+  if (questionType === 'mcq' || questionType === 'multiple_choice' as any) {
     // Extract the correct answer from options using the letter
     const correctOptionLetter = correctAnswer || 'A';
     const correctOption = options?.find((opt: string) => 
