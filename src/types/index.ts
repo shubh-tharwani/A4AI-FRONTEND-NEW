@@ -50,6 +50,7 @@ export interface Story {
   learning_objectives?: string[];
   discussion_questions?: string[];
   vocabulary_words?: string[];
+  audio_filename?: string;
   created_at?: string;
 }
 

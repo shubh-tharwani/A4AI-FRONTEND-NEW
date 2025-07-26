@@ -1,4 +1,23 @@
-import { useState } from 'react';
+/**
+ * Activities Component - Interactive Educational Stories with Audio Narration
+ * 
+ * Features:
+ * - Multi-language support (English, Hindi, Tamil, Kannada, Bengali)
+ * - Interactive story generation via backend API
+ * - Audio narration playback with play/pause controls
+ * - Story actions: like, bookmark, narrate
+ * - Discussion questions parsing and numbering
+ * - Fallback to demo stories when API fails
+ * 
+ * Audio Integration:
+ * - Uses backend's audio_filename field from InteractiveStoryResponse
+ * - Constructs audio URL: http://localhost:8000/api/v1/activities/audio/{filename}
+ * - Play/pause controls with visual feedback
+ * - Error handling for missing or failed audio
+ * - Language-specific narration button labels
+ */
+
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import {
@@ -8,8 +27,9 @@ import {
   HeartIcon,
   StarIcon,
   ChatBubbleLeftEllipsisIcon,
+  SpeakerWaveIcon,
 } from '@heroicons/react/24/outline';
-import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
+import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon, PlayIcon as PlaySolidIcon, PauseIcon as PauseSolidIcon } from '@heroicons/react/24/solid';
 import Navigation from '../../components/layout/Navigation';
 import { ActivityRequest, Story } from '../../types';
 import { getGradeLabel, cn } from '../../lib/utils';
@@ -24,6 +44,8 @@ interface ActivityState {
   currentStory: Story | null;
   likedStories: Set<string>;
   bookmarkedStories: Set<string>;
+  isPlayingAudio: boolean;
+  audioError: string | null;
 }
 
 // Language-specific content for multilingual support
@@ -47,7 +69,10 @@ const getLanguageContent = (language: string) => {
         like: 'Like',
         saved: 'Saved',
         save: 'Save',
-        createNewStory: 'Create New Story'
+        createNewStory: 'Create New Story',
+        playNarration: 'Play Narration',
+        stopNarration: 'Stop Narration',
+        audioNotAvailable: 'Audio Not Available'
       },
       storyElements: {
         welcomePhrase: 'Welcome to an exciting learning adventure about',
@@ -96,7 +121,10 @@ const getLanguageContent = (language: string) => {
         like: 'पसंद करें',
         saved: 'सहेजा गया',
         save: 'सहेजें',
-        createNewStory: 'नई कहानी बनाएं'
+        createNewStory: 'नई कहानी बनाएं',
+        playNarration: 'कथन सुनें',
+        stopNarration: 'कथन रोकें',
+        audioNotAvailable: 'ऑडियो उपलब्ध नहीं'
       },
       storyElements: {
         welcomePhrase: 'के बारे में एक रोमांचक सीखने की यात्रा में आपका स्वागत है',
@@ -145,7 +173,10 @@ const getLanguageContent = (language: string) => {
         like: 'விரும்பு',
         saved: 'சேமிக்கப்பட்டது',
         save: 'சேமி',
-        createNewStory: 'புதிய கதை உருவாக்கு'
+        createNewStory: 'புதிய கதை உருவாக்கு',
+        playNarration: 'கதை கேளுங்கள்',
+        stopNarration: 'கதை நிறுத்து',
+        audioNotAvailable: 'ஆடியோ கிடைக்கவில்லை'
       },
       storyElements: {
         welcomePhrase: 'பற்றிய ஒரு உற்சாகமான கற்றல் சாகசத்திற்கு உங்களை வரவேற்கிறோம்',
@@ -194,7 +225,10 @@ const getLanguageContent = (language: string) => {
         like: 'ಇಷ್ಟ',
         saved: 'ಉಳಿಸಲಾಗಿದೆ',
         save: 'ಉಳಿಸಿ',
-        createNewStory: 'ಹೊಸ ಕಥೆ ರಚಿಸಿ'
+        createNewStory: 'ಹೊಸ ಕಥೆ ರಚಿಸಿ',
+        playNarration: 'ಕಥೆ ಕೇಳಿ',
+        stopNarration: 'ಕಥೆ ನಿಲ್ಲಿಸಿ',
+        audioNotAvailable: 'ಆಡಿಯೋ ಲಭ್ಯವಿಲ್ಲ'
       },
       storyElements: {
         welcomePhrase: 'ಬಗ್ಗೆ ಒಂದು ರೋಮಾಂಚಕ ಕಲಿಕೆಯ ಸಾಹಸಕ್ಕೆ ಸ್ವಾಗತ',
@@ -243,7 +277,10 @@ const getLanguageContent = (language: string) => {
         like: 'পছন্দ',
         saved: 'সংরক্ষিত',
         save: 'সংরক্ষণ',
-        createNewStory: 'নতুন গল্প তৈরি করুন'
+        createNewStory: 'নতুন গল্প তৈরি করুন',
+        playNarration: 'গল্প শুনুন',
+        stopNarration: 'গল্প বন্ধ করুন',
+        audioNotAvailable: 'অডিও উপলব্ধ নেই'
       },
       storyElements: {
         welcomePhrase: 'সম্পর্কে একটি উত্তেজনাপূর্ণ শেখার অভিযানে আপনাকে স্বাগতম',
@@ -363,6 +400,8 @@ export default function Activities() {
     currentStory: null,
     likedStories: new Set(),
     bookmarkedStories: new Set(),
+    isPlayingAudio: false,
+    audioError: null,
   });
 
   const { register, handleSubmit, formState: { errors } } = useForm<ActivityRequest>({
@@ -372,6 +411,67 @@ export default function Activities() {
       language: 'English',
     }
   });
+
+  // Audio functionality
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playAudio = async (audioFilename: string) => {
+    try {
+      setActivityState(prev => ({ ...prev, audioError: null }));
+      
+      // Construct audio URL based on backend configuration
+      const audioUrl = `http://localhost:8000/api/v1/activities/audio/${audioFilename}`;
+      
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      
+      // Create new audio element
+      audioRef.current = new Audio(audioUrl);
+      
+      // Set up event listeners
+      audioRef.current.addEventListener('loadstart', () => {
+        setActivityState(prev => ({ ...prev, isPlayingAudio: true }));
+      });
+      
+      audioRef.current.addEventListener('ended', () => {
+        setActivityState(prev => ({ ...prev, isPlayingAudio: false }));
+      });
+      
+      audioRef.current.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        setActivityState(prev => ({ 
+          ...prev, 
+          isPlayingAudio: false,
+          audioError: 'Failed to play audio. The audio file may not be available yet.'
+        }));
+      });
+      
+      // Start playback
+      await audioRef.current.play();
+      toast.success('🎵 Playing story narration!');
+      
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setActivityState(prev => ({ 
+        ...prev, 
+        isPlayingAudio: false,
+        audioError: 'Unable to play audio. Please try again later.'
+      }));
+      toast.error('Failed to play audio');
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setActivityState(prev => ({ ...prev, isPlayingAudio: false }));
+      toast.success('🛑 Audio stopped');
+    }
+  };
 
   const generateStory = async (data: ActivityRequest) => {
     try {
@@ -423,6 +523,7 @@ export default function Activities() {
       console.log('📖 What you learn:', response.what_you_learn);
       console.log('🌍 Language:', response.language);
       console.log('📚 Subject:', response.subject);
+      console.log('🎵 Audio filename:', response.audio_filename);
       
       // Enhanced response validation
       if (!response) {
@@ -438,6 +539,7 @@ export default function Activities() {
       console.log('  - learning_objectives exists:', !!response.learning_objectives);
       console.log('  - think_about_it exists:', !!response.think_about_it);
       console.log('  - what_you_learn exists:', !!response.what_you_learn);
+      console.log('  - audio_filename exists:', !!response.audio_filename);
       
       // Backend returns InteractiveStoryResponse directly
       if (response.story_id && response.story_text) {
@@ -455,6 +557,7 @@ export default function Activities() {
           grade: response.grade_level || sanitizedData.grade,
           topic: response.topic || sanitizedData.topic,
           language: response.language || data.language || 'English',
+          audio_filename: response.audio_filename, // Add audio filename from backend
           learning_objectives: Array.isArray(response.learning_objectives) ? 
             response.learning_objectives.filter(obj => obj && obj.trim()) : 
             [`Learn about ${sanitizedData.topic}`],
@@ -871,6 +974,47 @@ export default function Activities() {
                   )}
                   <span>{isBookmarked ? langContent.labels.saved : langContent.labels.save}</span>
                 </button>
+
+                {/* Audio Narration Button */}
+                {story.audio_filename ? (
+                  <button
+                    onClick={() => activityState.isPlayingAudio ? stopAudio() : playAudio(story.audio_filename!)}
+                    disabled={activityState.isPlayingAudio && !story.audio_filename}
+                    className={cn(
+                      "flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors",
+                      activityState.isPlayingAudio
+                        ? "bg-purple-50 text-purple-600 hover:bg-purple-100"
+                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                    )}
+                  >
+                    {activityState.isPlayingAudio ? (
+                      <PauseSolidIcon className="w-5 h-5" />
+                    ) : (
+                      <PlaySolidIcon className="w-5 h-5" />
+                    )}
+                    <span>
+                      {activityState.isPlayingAudio 
+                        ? langContent.labels.stopNarration 
+                        : langContent.labels.playNarration
+                      }
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg opacity-50 cursor-not-allowed bg-gray-50 text-gray-400"
+                  >
+                    <SpeakerWaveIcon className="w-5 h-5" />
+                    <span>{langContent.labels.audioNotAvailable}</span>
+                  </button>
+                )}
+
+                {/* Audio Error Display */}
+                {activityState.audioError && (
+                  <div className="text-red-600 text-sm px-2">
+                    {activityState.audioError}
+                  </div>
+                )}
               </div>
 
               <button
