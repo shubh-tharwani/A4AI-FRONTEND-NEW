@@ -6,6 +6,7 @@ import {
   DocumentTextIcon,
   UserGroupIcon,
   ChartBarIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 export const navigationItems = [
@@ -57,4 +58,11 @@ export const navigationItems = [
     icon: ChartBarIcon,
     requiredRoles: ['teacher', 'admin'],
   },
+  {
+    name: 'Agentic AI',
+    description: 'Advanced AI-powered features',
+    href: '/agentic',
+    icon: SparklesIcon,
+    requiredRoles: ['teacher', 'admin'],
+  }
 ];

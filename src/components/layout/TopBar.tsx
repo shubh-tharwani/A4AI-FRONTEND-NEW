@@ -310,11 +310,17 @@ export default function TopBar({ onMenuClick, user }: TopBarProps) {
                   </div>
                   
                   <div className="p-2">
-                    <button className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                    <button 
+                      onClick={() => navigate('/profile')}
+                      className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
+                    >
                       <UserCircleIcon className="w-5 h-5 text-gray-500" />
                       <span className="text-sm text-gray-700">Your Profile</span>
                     </button>
-                    <button className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                    <button 
+                      onClick={() => navigate('/settings')}
+                      className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
+                    >
                       <CogIcon className="w-5 h-5 text-gray-500" />
                       <span className="text-sm text-gray-700">Settings</span>
                     </button>

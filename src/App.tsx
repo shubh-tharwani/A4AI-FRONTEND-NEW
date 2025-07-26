@@ -19,6 +19,8 @@ import VoiceLite from './pages/voice-lite/VoiceLite';
 import VisualAids from './pages/visual-aids/VisualAids';
 import ARScene from './pages/ar-scene/ARScene';
 import AgenticDashboard from './pages/agentic/AgenticDashboard';
+import Profile from './pages/profile/Profile';
+import Settings from './pages/settings/Settings';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -137,6 +139,18 @@ function App() {
               <Route path="/agentic" element={
                 <ProtectedRoute>
                   <AgenticDashboard />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               } />
               
