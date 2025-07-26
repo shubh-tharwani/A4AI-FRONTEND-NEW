@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   AcademicCapIcon,
   SparklesIcon,
@@ -13,7 +13,58 @@ import {
 
 const LandingPage: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [currentLanguageIndex, setCurrentLanguageIndex] = useState(0);
   const navigate = useNavigate();
+
+  // Language translations for the animated words
+  const translations = [
+    {
+      language: 'English',
+      empowering: 'Empowering',
+      teachers: 'Teachers',
+      engaging: 'Engaging',
+      students: 'Students'
+    },
+    {
+      language: 'Tamil',
+      empowering: 'ஆசிரியரின்',
+      teachers: 'அதிகாரம்',
+      engaging: 'மாணவர்களின்',
+      students: 'ஈடுபாடு'
+    },
+    {
+      language: 'Kannada',
+      empowering: 'ಅಧಿಕಾರೀಕರಣ',
+      teachers: 'ಶಿಕ್ಷಕರು',
+      engaging: 'ತೊಡಗಿಸುವ',
+      students: 'ವಿದ್ಯಾರ್ಥಿಗಳು'
+    },
+    {
+      language: 'Hindi',
+      empowering: 'सशक्तिकरण',
+      teachers: 'शिक्षक',
+      engaging: 'आकर्षक',
+      students: 'छात्र'
+    },
+    {
+      language: 'Bengali',
+      empowering: 'ক্ষমতায়ন',
+      teachers: 'শিক্ষকরা',
+      engaging: 'আকর্ষক',
+      students: 'ছাত্রছাত্রী'
+    }
+  ];
+
+  // Cycle through languages every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentLanguageIndex((prev) => (prev + 1) % translations.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentTranslation = translations[currentLanguageIndex];
 
   const handleSignIn = () => {
     navigate('/login');
@@ -206,17 +257,69 @@ const LandingPage: React.FC = () => {
               className="mb-6"
             >
               <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-                Empowering{' '}
-                <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-                  Teachers
-                </span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`empowering-${currentLanguageIndex}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="inline-block"
+                  >
+                    {currentTranslation.empowering}
+                  </motion.span>
+                </AnimatePresence>{' '}
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`teachers-${currentLanguageIndex}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent inline-block"
+                  >
+                    {currentTranslation.teachers}
+                  </motion.span>
+                </AnimatePresence>
                 ,{' '}
                 <br className="hidden lg:block" />
-                Engaging{' '}
-                <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
-                  Students
-                </span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`engaging-${currentLanguageIndex}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                    className="inline-block"
+                  >
+                    {currentTranslation.engaging}
+                  </motion.span>
+                </AnimatePresence>{' '}
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`students-${currentLanguageIndex}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3, delay: 0.3 }}
+                    className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent inline-block"
+                  >
+                    {currentTranslation.students}
+                  </motion.span>
+                </AnimatePresence>
               </h1>
+              <motion.div
+                key={`language-indicator-${currentLanguageIndex}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-center lg:text-left mb-4"
+              >
+                <span className="text-white/60 text-sm font-medium bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
+                  {currentTranslation.language}
+                </span>
+              </motion.div>
               <p className="text-xl lg:text-2xl text-white/90 mb-8 leading-relaxed">
                 AI-powered tools to transform learning experiences and unlock every student's potential.
               </p>
@@ -244,30 +347,6 @@ const LandingPage: React.FC = () => {
               >
                 Sign In
               </motion.button>
-            </motion.div>
-
-            <motion.div
-              variants={fadeInUp}
-              transition={{ duration: 0.6 }}
-              className="text-center lg:text-left"
-            >
-              <p className="text-white/70 text-sm mb-4">Trusted by educators worldwide</p>
-              <div className="flex justify-center lg:justify-start items-center space-x-6">
-                <div className="text-white/90">
-                  <div className="text-2xl font-bold">10K+</div>
-                  <div className="text-sm text-white/70">Teachers</div>
-                </div>
-                <div className="w-px h-8 bg-white/30"></div>
-                <div className="text-white/90">
-                  <div className="text-2xl font-bold">100K+</div>
-                  <div className="text-sm text-white/70">Students</div>
-                </div>
-                <div className="w-px h-8 bg-white/30"></div>
-                <div className="text-white/90">
-                  <div className="text-2xl font-bold">50+</div>
-                  <div className="text-sm text-white/70">Countries</div>
-                </div>
-              </div>
             </motion.div>
           </div>
 
@@ -327,15 +406,6 @@ const LandingPage: React.FC = () => {
                 </svg>
               </div>
               
-              {/* Floating Cards */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="absolute -top-4 -right-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg"
-              >
-                98% Success Rate
-              </motion.div>
-              
               <motion.div
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
@@ -362,7 +432,7 @@ const LandingPage: React.FC = () => {
             Why Choose A4AI Learning?
           </h2>
           <p className="text-xl text-white/80 max-w-3xl mx-auto">
-            Experience the future of education with our cutting-edge AI technology designed for modern classrooms.
+            Experience the future of education with our cutting-edge AI technology designed for all kinds of classrooms.
           </p>
         </div>
 
