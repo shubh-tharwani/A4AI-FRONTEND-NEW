@@ -338,12 +338,15 @@ export interface InteractiveStoryResponse {
   story_id: string;
   title: string;
   story_text: string;
-  quizzes: QuizQuestion[];
+  think_about_it?: string;              // Additional field from actual backend
+  what_you_learn?: string;              // Additional field from actual backend
   learning_objectives: string[];
   vocabulary_words: string[];
   audio_filename: string;
   grade_level: number;
   topic: string;
+  language?: string;                    // Additional field from actual backend
+  subject?: string;                     // Additional field from actual backend
 }
 
 export interface ARSceneRequest {
