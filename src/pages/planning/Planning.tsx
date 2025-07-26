@@ -1,4 +1,103 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+// EditLessonPlanForm component and props
+interface EditLessonPlanFormProps {
+  plan: LessonPlan;
+  onSave: (p: LessonPlan) => void;
+  onCancel: () => void;
+}
+
+const EditLessonPlanForm: React.FC<EditLessonPlanFormProps> = ({ plan, onSave, onCancel }) => {
+  const [formState, setFormState] = useState({
+    title: plan.title,
+    subject: plan.subject,
+    topic: plan.topic,
+    grade: plan.grade,
+    duration: plan.duration,
+    language: plan.language,
+    date: plan.date || '',
+    start_time: plan.start_time || '09:00',
+    learning_objectives: plan.learning_objectives.join('\n'),
+    assessment: plan.assessment,
+    resources: plan.resources.join('\n'),
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedPlan: LessonPlan = {
+      ...plan,
+      title: formState.title,
+      subject: formState.subject,
+      topic: formState.topic,
+      grade: Number(formState.grade),
+      duration: Number(formState.duration),
+      language: formState.language,
+      date: formState.date,
+      start_time: formState.start_time,
+      learning_objectives: formState.learning_objectives.split('\n').map(s => s.trim()).filter(Boolean),
+      assessment: formState.assessment,
+      resources: formState.resources.split('\n').map(s => s.trim()).filter(Boolean),
+    };
+    onSave(updatedPlan);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 mt-8 p-8 bg-gray-50 rounded-xl border border-gray-200">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+        <input name="title" value={formState.title} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+        <input name="subject" value={formState.subject} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Topic</label>
+        <input name="topic" value={formState.topic} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
+        <input name="grade" type="number" value={formState.grade} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+        <input name="duration" type="number" value={formState.duration} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+        <input name="language" value={formState.language} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+        <input name="date" type="date" value={formState.date} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+        <input name="start_time" type="time" value={formState.start_time} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Learning Objectives (one per line)</label>
+        <textarea name="learning_objectives" value={formState.learning_objectives} onChange={handleChange} className="input-field" rows={3} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Assessment</label>
+        <input name="assessment" value={formState.assessment} onChange={handleChange} className="input-field" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Resources (one per line)</label>
+        <textarea name="resources" value={formState.resources} onChange={handleChange} className="input-field" rows={2} />
+      </div>
+      <div className="flex space-x-4 mt-4">
+        <button type="submit" className="btn-primary">Save</button>
+        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+};
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import {
@@ -19,7 +118,7 @@ import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
 import { validateObject, LessonPlanValidationSchema, showValidationErrors } from '../../utils/validation';
 
-type PlanningView = 'create' | 'view' | 'manage';
+type PlanningView = 'create' | 'view';
 
 interface PlanningState {
   currentPlan: LessonPlan | null;
@@ -28,13 +127,14 @@ interface PlanningState {
 }
 
 export default function Planning() {
-  const [view, setView] = useState<PlanningView>('create');
+  const [view, setView] = useState<'create' | 'view'>('create');
   const [loading, setLoading] = useState(false);
   const [planningState, setPlanningState] = useState<PlanningState>({
     currentPlan: null,
     savedPlans: [],
     selectedPlan: null,
   });
+  const [editMode, setEditMode] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LessonPlanFormRequest>({
     defaultValues: {
@@ -43,6 +143,8 @@ export default function Planning() {
       topic: '',
       duration: 45,
       language: 'English',
+      date: new Date().toISOString().slice(0, 10),
+      start_time: '09:00',
     }
   });
 
@@ -75,15 +177,40 @@ export default function Planning() {
         return;
       }
       
+      // Get user_id from localStorage user key
+      let user_id = '';
+      try {
+        const userJson = localStorage.getItem('user');
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          user_id = user.id;
+        }
+        
+        if (!user_id) {
+          toast.error('Please login to create a lesson plan');
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        toast.error('Please login to create a lesson plan');
+        setLoading(false);
+        return;
+      }
+
       // Convert form data to the format expected by the backend
       const planRequest = {
         class_id: 'default-class', // Use a default class ID for now
         plan_type: 'daily' as const,
-        duration: 1, // Daily plan duration
+        duration: data.duration,
+       // Daily plan duration
         learning_objectives: [`Learn about ${data.topic.trim()} for grade ${data.grade}`],
-        curriculum_standards: [`${data.subject.trim()} - Grade ${data.grade}`]
+        curriculum_standards: [`${data.subject.trim()} - Grade ${data.grade}`],
+        date: data.date,
+        start_time: data.start_time,
+        user_id,
       };
-      
+
       const response = await ApiService.Planning.createLessonPlan(planRequest);
       
       // Enhanced response validation
@@ -164,18 +291,104 @@ export default function Planning() {
       currentPlan: plan,
     }));
     setView('view');
+    setEditMode(false);
+  };
+
+  const editPlan = (plan: LessonPlan) => {
+    setPlanningState(prev => ({
+      ...prev,
+      currentPlan: plan,
+    }));
+    setEditMode(true);
+    setView('view');
+  };
+
+  const saveEditedPlan = (updatedPlan: LessonPlan) => {
+    setPlanningState(prev => ({
+      ...prev,
+      currentPlan: updatedPlan,
+      savedPlans: prev.savedPlans.map(plan => plan.id === updatedPlan.id ? updatedPlan : plan),
+    }));
+    setEditMode(false);
+    toast.success('Lesson plan updated');
+  };
+
+  const fetchCurrentPlan = async () => {
+    try {
+      setLoading(true);
+      // Get user ID from localStorage
+      const userJson = localStorage.getItem('user');
+      if (!userJson) {
+        toast.error('Please login to view plans');
+        return;
+      }
+
+      const user = JSON.parse(userJson);
+      console.log(user.id)
+      const response = await ApiService.Planning.getCurrentPlan(user.id);
+
+      if (response && response.lesson_plan) {
+        try {
+          const lessonPlanData = JSON.parse(response.lesson_plan.replace(/'/g, '"'));
+          const curriculum = lessonPlanData.curriculum;
+
+          const newPlan: LessonPlan = {
+            id: response.plan_id,
+            title: `${curriculum.subject} - ${curriculum.topic}`,
+            grade: curriculum.grade,
+            subject: curriculum.subject,
+            topic: curriculum.topic,
+            duration: curriculum.duration,
+            language: 'English',
+            learning_objectives: curriculum.learningObjectives,
+            activities: curriculum.schedule.map((item: { topic: string; activities: string[]; duration: number; startTime: string }) => ({
+              name: item.topic,
+              description: item.activities.join('\n'),
+              duration: item.duration,
+              materials: []
+            })),
+            assessment: 'Based on class participation and understanding',
+            resources: ['Textbook', 'Visual aids', 'Class materials'],
+            created_at: new Date().toISOString()
+          };
+
+          setPlanningState(prev => ({
+            ...prev,
+            currentPlan: newPlan
+          }));
+          setView('view');
+          toast.success('Current plan loaded successfully!');
+        } catch (parseError) {
+          console.error('Error parsing lesson plan:', parseError);
+          toast.error('Error parsing lesson plan data');
+        }
+      } else {
+        toast.error('No current plan found');
+      }
+    } catch (error) {
+      console.error('Error fetching current plan:', error);
+      toast.error('Failed to load current plan');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderNavigation = () => (
     <div className="flex space-x-4 mb-8">
       {[
-        { id: 'create' as PlanningView, name: 'Create Plan', icon: ClipboardDocumentListIcon },
-        { id: 'view' as PlanningView, name: 'Current Plan', icon: BookOpenIcon },
-        { id: 'manage' as PlanningView, name: 'My Plans', icon: CalendarDaysIcon },
+        { id: 'create', name: 'Create Plan', icon: ClipboardDocumentListIcon },
+        { id: 'view', name: 'Current Plan', icon: BookOpenIcon },
       ].map((tab) => (
         <button
           key={tab.id}
-          onClick={() => setView(tab.id)}
+          onClick={() => { 
+            if (tab.id === 'view') {
+              fetchCurrentPlan();
+            } else {
+              setView(tab.id as 'create' | 'view');
+              setEditMode(false);
+            }
+          }}
           className={cn(
             "flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors",
             view === tab.id
@@ -282,6 +495,28 @@ export default function Planning() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+            <input
+              {...register('date', { required: 'Date is required' })}
+              type="date"
+              className="input-field"
+            />
+            {errors.date && (
+              <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+            <input
+              {...register('start_time', { required: 'Start time is required' })}
+              type="time"
+              className="input-field"
+            />
+            {errors.start_time && (
+              <p className="text-red-500 text-sm mt-1">{errors.start_time.message}</p>
+            )}
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Language
             </label>
@@ -365,6 +600,10 @@ export default function Planning() {
                 <UserGroupIcon className="w-5 h-5 mr-2" />
                 {plan.language}
               </div>
+              <div className="flex items-center">
+                <CalendarDaysIcon className="w-5 h-5 mr-2" />
+                {plan.date || '-'}
+              </div>
             </div>
           </div>
 
@@ -409,7 +648,6 @@ export default function Planning() {
                         </span>
                       </div>
                       <p className="text-gray-700 mb-4">{activity.description}</p>
-                      
                       {activity.materials && activity.materials.length > 0 && (
                         <div>
                           <h5 className="text-sm font-medium text-gray-900 mb-2">Materials Needed:</h5>
@@ -466,90 +704,26 @@ export default function Planning() {
                 Create New Plan
               </button>
               <button
-                onClick={() => window.print()}
+                onClick={() => setEditMode(true)}
                 className="btn-primary"
               >
-                Print Plan
+                Edit Plan
               </button>
             </div>
+            {editMode && (
+              <EditLessonPlanForm
+                plan={plan}
+                onSave={saveEditedPlan}
+                onCancel={() => setEditMode(false)}
+              />
+            )}
           </div>
         </div>
       </motion.div>
     );
   };
 
-  const renderManagePlans = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-4xl mx-auto"
-    >
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">My Lesson Plans</h2>
-        <button
-          onClick={() => setView('create')}
-          className="btn-primary"
-        >
-          Create New Plan
-        </button>
-      </div>
-
-      {planningState.savedPlans.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
-          <CalendarDaysIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No saved lesson plans</h3>
-          <p className="text-gray-600 mb-6">Create your first lesson plan to get started</p>
-          <button
-            onClick={() => setView('create')}
-            className="btn-primary"
-          >
-            Create Lesson Plan
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {planningState.savedPlans.map((plan) => (
-            <motion.div
-              key={plan.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => viewPlan(plan)}
-              whileHover={{ y: -2 }}
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{plan.title}</h3>
-              <div className="text-sm text-gray-600 space-y-1 mb-4">
-                <div>Grade {plan.grade} • {plan.subject}</div>
-                <div>{plan.duration} minutes • {plan.language}</div>
-                {plan.created_at && (
-                  <div>Created {formatDate(plan.created_at)}</div>
-                )}
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    viewPlan(plan);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                >
-                  View Plan
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deletePlan(plan.id || '');
-                  }}
-                  className="text-red-600 hover:text-red-800 font-medium text-sm"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-    </motion.div>
-  );
+  // Removed manage view
 
   return (
     <Navigation>
@@ -573,7 +747,6 @@ export default function Planning() {
         {/* Content */}
         {view === 'create' && renderCreateForm()}
         {view === 'view' && renderLessonPlan()}
-        {view === 'manage' && renderManagePlans()}
       </div>
     </Navigation>
   );

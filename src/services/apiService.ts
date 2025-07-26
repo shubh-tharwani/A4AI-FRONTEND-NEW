@@ -386,24 +386,25 @@ export class VisualAidsService {
 
 // Planning Service
 export class PlanningService {
-  static async createLessonPlan(request: {
-    class_id: string;
-    plan_type?: 'daily' | 'weekly' | 'monthly';
-    duration?: number;
-    curriculum_standards?: string[];
-    learning_objectives?: string[];
-  }): Promise<LessonPlanResponse> {
-    return apiClient.post<LessonPlanResponse>('/api/v1/planning/lesson-plan', request);
+  static async getCurrentPlan(userId: string): Promise<any> {
+    return apiClient.post('/api/v1/planning/curriculum-plan', {
+      user_id: userId,
+    });
   }
 
-  static async createCurriculumPlan(request: {
+  static async createLessonPlan(request: {
     class_id: string;
-    subject: string;
-    grade_level: number;
-    semester_duration?: number;
-  }): Promise<any> {
-    return apiClient.post('/api/v1/planning/curriculum-plan', request);
+    plan_type: 'daily' | 'weekly' | 'monthly';
+    duration: number;
+    curriculum_standards?: string[];
+    learning_objectives?: string[];
+    date?: string;
+    start_time?: string;
+    user_id: string;
+  }): Promise<LessonPlanResponse> {
+    return apiClient.post('/api/v1/planning/create-lesson-plan', request);
   }
+
 
   static async getLessonPlan(planId: string): Promise<any> {
     return apiClient.get(`/api/v1/planning/lesson-plan/${planId}`);
