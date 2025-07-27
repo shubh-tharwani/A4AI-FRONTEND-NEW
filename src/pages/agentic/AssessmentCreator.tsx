@@ -11,10 +11,8 @@ export default function AssessmentCreator() {
   const [result, setResult] = useState<AssessmentResponse | null>(null);
   const [formData, setFormData] = useState<AssessmentRequest>({
     topic: '',
-    grade_level: '',
-    assessment_type: 'quiz',
-    question_count: 5,
-    difficulty: 'medium',
+    grade_level: 'elementary',
+    assessment_type: 'comprehensive',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,14 +60,11 @@ export default function AssessmentCreator() {
                 value={formData.grade_level}
                 onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
               >
-                <option value="">Select grade level</option>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={`grade_${i + 1}`}>
-                    Grade {i + 1}
-                  </option>
-                ))}
+                <option value="elementary">Elementary</option>
+                <option value="middle">Middle School</option>
+                <option value="high">High School</option>
+                <option value="college">College</option>
               </select>
             </div>
 
@@ -79,43 +74,13 @@ export default function AssessmentCreator() {
               </label>
               <select
                 value={formData.assessment_type}
-                onChange={(e) => setFormData({ ...formData, assessment_type: e.target.value as 'quiz' | 'test' | 'assignment' })}
+                onChange={(e) => setFormData({ ...formData, assessment_type: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
+                <option value="comprehensive">Comprehensive</option>
                 <option value="quiz">Quiz</option>
                 <option value="test">Test</option>
                 <option value="assignment">Assignment</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Number of Questions
-              </label>
-              <input
-                type="number"
-                value={formData.question_count}
-                onChange={(e) => setFormData({ ...formData, question_count: parseInt(e.target.value) })}
-                min="1"
-                max="50"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Difficulty
-              </label>
-              <select
-                value={formData.difficulty}
-                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
               </select>
             </div>
           </div>

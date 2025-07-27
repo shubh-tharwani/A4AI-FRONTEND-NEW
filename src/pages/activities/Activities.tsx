@@ -23,13 +23,12 @@ import { useForm } from 'react-hook-form';
 import {
   SparklesIcon,
   BookOpenIcon,
-  PlayIcon,
   HeartIcon,
   StarIcon,
   ChatBubbleLeftEllipsisIcon,
   SpeakerWaveIcon,
 } from '@heroicons/react/24/outline';
-import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon, PlayIcon as PlaySolidIcon, PauseIcon as PauseSolidIcon } from '@heroicons/react/24/solid';
+import { HeartIcon as HeartSolidIcon, StarIcon as StarSolidIcon, PlayCircleIcon as PlaySolidIcon, PauseCircleIcon as PauseSolidIcon } from '@heroicons/react/24/solid';
 import Navigation from '../../components/layout/Navigation';
 import { ActivityRequest, Story } from '../../types';
 import { getGradeLabel, cn } from '../../lib/utils';
@@ -38,7 +37,7 @@ import ApiService from '../../services/apiService';
 import toast from 'react-hot-toast';
 import { validateObject, ActivityValidationSchema, InteractiveStoryValidationSchema, showValidationErrors } from '../../utils/validation';
 
-type ActivityType = 'story' | 'game' | 'exercise';
+type ActivityType = 'story' | 'game';
 
 interface ActivityState {
   currentStory: Story | null;
@@ -705,22 +704,15 @@ export default function Activities() {
     },
     {
       id: 'game' as ActivityType,
-      name: 'Learning Games',
+      name: 'Fun Lab',
       description: 'Gamified exercises to reinforce key concepts',
       icon: SparklesIcon,
       gradient: 'from-purple-500 to-indigo-500',
     },
-    {
-      id: 'exercise' as ActivityType,
-      name: 'Practice Exercises',
-      description: 'Interactive drills to build mastery',
-      icon: PlayIcon,
-      gradient: 'from-blue-500 to-cyan-500',
-    },
   ];
 
   const renderActivitySelector = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-4xl mx-auto">
       {activityTypes.map((type) => (
         <motion.button
           key={type.id}
@@ -1043,7 +1035,7 @@ export default function Activities() {
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Coming Soon!</h2>
         <p className="text-gray-600 mb-8">
           {activityType === 'game' 
-            ? "Interactive learning games and gamified exercises are in development."
+            ? "Interactive fun labs and gamified exercises are in development."
             : "Practice exercises and interactive drills are coming soon."
           }
         </p>
@@ -1083,7 +1075,7 @@ export default function Activities() {
           </>
         )}
         
-        {(activityType === 'game' || activityType === 'exercise') && renderComingSoon()}
+        {(activityType === 'game') && renderComingSoon()}
       </div>
     </Navigation>
   );

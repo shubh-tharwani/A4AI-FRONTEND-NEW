@@ -12,30 +12,35 @@ export interface LessonPlanRequest {
   duration: number;
   learning_objectives: string[];
   subject_area: string;
+  teacher_id: string;
+  class_id: string;
+}
+
+// For plan-only endpoint which uses query parameters
+export interface LessonPlanOnlyRequest {
+  teacher_id: string;
+  class_id: string;
+  topic: string;
+  grade_level?: string;
+  duration?: number;
 }
 
 export interface ContentGenerationRequest {
   topic: string;
-  grade_level: string;
-  content_type: 'text' | 'interactive' | 'multimedia';
-  format: 'markdown' | 'html';
-  length: 'short' | 'medium' | 'long';
+  grade_level?: string;
+  content_type?: string;
 }
 
 export interface AssessmentRequest {
   topic: string;
-  grade_level: string;
-  assessment_type: 'quiz' | 'test' | 'assignment';
-  question_count: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  grade_level?: string;
+  assessment_type?: string;
 }
 
 export interface VisualAidRequest {
   topic: string;
-  grade_level: string;
-  aid_type: 'diagram' | 'infographic' | 'chart';
-  style: 'modern' | 'classic' | 'playful';
-  description: string;
+  grade_level?: string;
+  visual_type?: string;
 }
 
 export interface LessonPlanResponse {

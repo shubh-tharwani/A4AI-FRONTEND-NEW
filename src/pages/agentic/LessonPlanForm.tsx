@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { LessonPlanRequest, LessonPlanResponse } from '../../types/agentic';
@@ -15,7 +15,21 @@ export default function LessonPlanForm() {
     duration: 60,
     learning_objectives: [''],
     subject_area: '',
+    teacher_id: '',
+    class_id: '',
   });
+
+  // Auto-populate teacher_id and class_id from localStorage
+  useEffect(() => {
+    const teacherId = localStorage.getItem('teacher_id') || 'demo_teacher_001';
+    const classId = localStorage.getItem('class_id') || 'demo_class_001';
+    
+    setFormData(prev => ({
+      ...prev,
+      teacher_id: teacherId,
+      class_id: classId
+    }));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

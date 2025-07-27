@@ -59,8 +59,8 @@ export const navigationItems = [
     requiredRoles: ['teacher', 'admin'],
   },
   {
-    name: 'Agentic AI',
-    description: 'Advanced AI-powered features',
+    name: 'Sahayak',
+    description: 'Agentic AI-powered features',
     href: '/agentic',
     icon: SparklesIcon,
     requiredRoles: ['teacher', 'admin'],

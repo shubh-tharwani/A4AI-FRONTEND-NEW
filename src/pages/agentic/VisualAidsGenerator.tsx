@@ -10,10 +10,8 @@ export default function VisualAidsGenerator() {
   const [result, setResult] = useState<VisualAidResponse | null>(null);
   const [formData, setFormData] = useState<VisualAidRequest>({
     topic: '',
-    grade_level: '',
-    aid_type: 'diagram',
-    style: 'modern',
-    description: '',
+    grade_level: 'elementary',
+    visual_type: 'comprehensive',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,62 +59,29 @@ export default function VisualAidsGenerator() {
                 value={formData.grade_level}
                 onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
               >
-                <option value="">Select grade level</option>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={`grade_${i + 1}`}>
-                    Grade {i + 1}
-                  </option>
-                ))}
+                <option value="elementary">Elementary</option>
+                <option value="middle">Middle School</option>
+                <option value="high">High School</option>
+                <option value="college">College</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Aid Type
+                Visual Type
               </label>
               <select
-                value={formData.aid_type}
-                onChange={(e) => setFormData({ ...formData, aid_type: e.target.value as 'diagram' | 'infographic' | 'chart' })}
+                value={formData.visual_type}
+                onChange={(e) => setFormData({ ...formData, visual_type: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
+                <option value="comprehensive">Comprehensive</option>
                 <option value="diagram">Diagram</option>
                 <option value="infographic">Infographic</option>
                 <option value="chart">Chart</option>
               </select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Style
-              </label>
-              <select
-                value={formData.style}
-                onChange={(e) => setFormData({ ...formData, style: e.target.value as 'modern' | 'classic' | 'playful' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="modern">Modern</option>
-                <option value="classic">Classic</option>
-                <option value="playful">Playful</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              rows={4}
-              placeholder="Describe what you want the visual aid to show"
-              required
-            />
           </div>
 
           <div className="flex justify-end">

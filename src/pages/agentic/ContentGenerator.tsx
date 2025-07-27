@@ -11,10 +11,8 @@ export default function ContentGenerator() {
   const [result, setResult] = useState<ContentGenerationResponse | null>(null);
   const [formData, setFormData] = useState<ContentGenerationRequest>({
     topic: '',
-    grade_level: '',
-    content_type: 'text',
-    format: 'markdown',
-    length: 'medium',
+    grade_level: 'elementary',
+    content_type: 'comprehensive',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,14 +60,11 @@ export default function ContentGenerator() {
                 value={formData.grade_level}
                 onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
               >
-                <option value="">Select grade level</option>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={`grade_${i + 1}`}>
-                    Grade {i + 1}
-                  </option>
-                ))}
+                <option value="elementary">Elementary</option>
+                <option value="middle">Middle School</option>
+                <option value="high">High School</option>
+                <option value="college">College</option>
               </select>
             </div>
 
@@ -79,43 +74,13 @@ export default function ContentGenerator() {
               </label>
               <select
                 value={formData.content_type}
-                onChange={(e) => setFormData({ ...formData, content_type: e.target.value as 'text' | 'interactive' | 'multimedia' })}
+                onChange={(e) => setFormData({ ...formData, content_type: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="text">Text</option>
+                <option value="comprehensive">Comprehensive</option>
+                <option value="summary">Summary</option>
+                <option value="detailed">Detailed</option>
                 <option value="interactive">Interactive</option>
-                <option value="multimedia">Multimedia</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Format
-              </label>
-              <select
-                value={formData.format}
-                onChange={(e) => setFormData({ ...formData, format: e.target.value as 'markdown' | 'html' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="markdown">Markdown</option>
-                <option value="html">HTML</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Length
-              </label>
-              <select
-                value={formData.length}
-                onChange={(e) => setFormData({ ...formData, length: e.target.value as 'short' | 'medium' | 'long' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="short">Short</option>
-                <option value="medium">Medium</option>
-                <option value="long">Long</option>
               </select>
             </div>
           </div>
@@ -153,14 +118,14 @@ export default function ContentGenerator() {
           </div>
 
           <div className="prose max-w-none">
-            {result.format === 'markdown' ? (
+            <div className="bg-gray-50 p-4 rounded-lg">
               <ReactMarkdown>{result.content}</ReactMarkdown>
-            ) : (
-              <div dangerouslySetInnerHTML={{ __html: result.content }} />
-            )}
+            </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-500">
+            <div>Topic: {result.metadata.topic}</div>
+            <div>Grade Level: {result.metadata.grade_level}</div>
             <div>Type: {result.metadata.type}</div>
             <div>Created: {new Date(result.metadata.created_at).toLocaleString()}</div>
           </div>
