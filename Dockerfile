@@ -19,23 +19,11 @@ RUN npm run build
 # Production stage with Nginx
 FROM nginx:alpine
 
-# Add non-root user
-RUN adduser -D static
-
-# Create nginx directories and set permissions
-RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run \
-    && chown -R static:static /var/cache/nginx /var/log/nginx /var/run
-
 # Copy the built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
-RUN chown -R static:static /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN chown -R static:static /etc/nginx
-
-# Use non-root user
-USER static
 
 # Expose port 8080 (Cloud Run requirement)
 EXPOSE 8080
