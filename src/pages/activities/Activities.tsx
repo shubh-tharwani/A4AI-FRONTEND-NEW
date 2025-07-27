@@ -11,7 +11,7 @@
  * 
  * Audio Integration:
  * - Uses backend's audio_filename field from InteractiveStoryResponse
- * - Constructs audio URL: http://localhost:8000/api/v1/activities/audio/{filename}
+ * - Constructs audio URL: {API_BASE_URL}/api/v1/activities/audio/{filename}
  * - Play/pause controls with visual feedback
  * - Error handling for missing or failed audio
  * - Language-specific narration button labels
@@ -419,7 +419,8 @@ export default function Activities() {
       setActivityState(prev => ({ ...prev, audioError: null }));
       
       // Construct audio URL based on backend configuration
-      const audioUrl = `http://localhost:8000/api/v1/activities/audio/${audioFilename}`;
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const audioUrl = `${API_BASE_URL}/api/v1/activities/audio/${audioFilename}`;
       
       // Stop any currently playing audio
       if (audioRef.current) {

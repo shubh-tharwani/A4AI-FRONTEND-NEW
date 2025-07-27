@@ -363,7 +363,7 @@ export default function VoiceLite() {
 
             {/* API Info */}
             <div className="mt-3 text-center text-xs text-gray-500">
-              Connected to: <code className="bg-gray-100 px-2 py-1 rounded">http://localhost:8000/api/v1/voice/text-chat</code>
+              Connected to: <code className="bg-gray-100 px-2 py-1 rounded">{import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/voice/text-chat</code>
             </div>
           </div>
         </div>

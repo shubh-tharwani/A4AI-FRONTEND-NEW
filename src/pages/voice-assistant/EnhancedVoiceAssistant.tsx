@@ -410,7 +410,7 @@ export default function EnhancedVoiceAssistant() {
         files: request.files?.map(f => ({ name: f.name, size: f.size, type: f.type }))
       });
 
-      // Use the real API endpoint: http://localhost:8000/api/v1/voice/assistant
+      // Use the real API endpoint: {API_BASE_URL}/api/v1/voice/assistant
       let response;
       
       try {
@@ -455,7 +455,7 @@ export default function EnhancedVoiceAssistant() {
         response = {
           message: `I received your ${type === 'voice' ? 'voice input' : 'message'}${sanitizedMessage ? `: "${sanitizedMessage}"` : ''} with ${allFiles.length} file(s). 
 
-⚠️ **Note:** The Voice Assistant API (http://localhost:8000/api/v1/voice/assistant) is currently unavailable. This is a fallback response.
+⚠️ **Note:** The Voice Assistant API (${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/voice/assistant) is currently unavailable. This is a fallback response.
 
 **Your request details:**
 - Input type: ${type}
@@ -472,7 +472,7 @@ export default function EnhancedVoiceAssistant() {
 - Educational content generation
 - Multi-language support
 
-Please ensure the backend server is running at http://localhost:8000`,
+Please ensure the backend server is running at ${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}`,
           session_id: state.sessionId,
           metadata: {
             processing_time: 1000,
