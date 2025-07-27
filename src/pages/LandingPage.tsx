@@ -41,8 +41,8 @@ const LandingPage: React.FC = () => {
     },
     {
       language: 'Hindi',
-      empowering: 'सशक्तिकरण',
-      teachers: 'शिक्षक',
+      empowering: 'गुरु',
+      teachers: 'शक्तिशाली',
       engaging: 'आकर्षक',
       students: 'छात्र'
     },
